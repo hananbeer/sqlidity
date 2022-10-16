@@ -203,14 +203,146 @@ contract Sqlite {
             console.log("%s: %s", uint256(ins.opcode), ins.p1);
 
             if (ins.opcode == uint256(Opcode.Init)) {
-                // advance PC
+                // advance PC (-1 because the loop will advance one more INS_SIZE)
                 pc = (ins.p2 - 1) * INS_SIZE;
-            } else if (ins.opcode == uint256(Opcode.Transaction)) {
-                // TODO: impl
-                // no op for now
+            }
+            /*
+            TRANSACTIONS
+            */
+            else if (ins.opcode == uint256(Opcode.Transaction)) {
+                // TODO: impl. no op for now
             } else if (ins.opcode == uint256(Opcode.OpenRead)) {
+                // TODO: impl. no op for now
+            } else if (ins.opcode == uint256(Opcode.OpenWrite)) {
+                // TODO: impl. no op for now
+            } else if (ins.opcode == uint256(Opcode.Init)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.InitCoroutine)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.EndCoroutine)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Yield)) { revert("unimplemented opcode");
+            }
+            /*
+            CONSTANTS
+            */
+            else if (ins.opcode == uint256(Opcode.Integer)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Real)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.String)) {
+                /*
+                The string value P4 of length P1 (bytes) is stored in register P2.
+                If P3 is not zero and the content of register P3 is equal to P5, then the datatype of the register P2 is converted to BLOB. The content is the same sequence of bytes, it is merely interpreted as a BLOB instead of a string, as if it had been CAST. In other words:
+
+                if( P3!=0 and reg[P3]==P5 ) reg[P2] := CAST(reg[P2] as BLOB)
+                */
+                // TODO: calc length
+                mem[ins.p2] = ins.p4;
+                //mem[ins.p1] = strlen(ins.p4);
+            } else if (ins.opcode == uint256(Opcode.String8)) {
+                /*
+                P4 points to a nul terminated UTF-8 string. This opcode is transformed into a String opcode before it is executed for the first time. During this transformation, the length of string P4 is computed and stored as the P1 parameter.
+                */
+                // TODO: calc length
+                mem[ins.p2] = ins.p4;
+                //mem[ins.p1] = strlen(ins.p4);
+            } else if (ins.opcode == uint256(Opcode.Null)) {
+                mem[ins.p2++] = 0;
+                while (ins.p2 < ins.p3)
+                    mem[ins.p2++] = 0;
+            } else if (ins.opcode == uint256(Opcode.SoftNull)) { revert("unimplemented opcode");
+            }
+            /*
+            COMPARSIONS
+            */
+            else if (ins.opcode == uint256(Opcode.Eq)) {
+                /*
+                Compare the values in register P1 and P3. If reg(P3)==reg(P1) then jump to address P2.
+                The SQLITE_AFF_MASK portion of P5 must be an affinity character - SQLITE_AFF_TEXT, SQLITE_AFF_INTEGER, and so forth. An attempt is made to coerce both inputs according to this affinity before the comparison is made. If the SQLITE_AFF_MASK is 0x00, then numeric affinity is used. Note that the affinity conversions are stored back into the input registers P1 and P3. So this opcode can cause persistent changes to registers P1 and P3.
+                Once any conversions have taken place, and neither value is NULL, the values are compared. If both values are blobs then memcmp() is used to determine the results of the comparison. If both values are text, then the appropriate collating function specified in P4 is used to do the comparison. If P4 is not specified then memcmp() is used to compare text string. If both values are numeric, then a numeric comparison is used. If the two values are of different types, then numbers are considered less than strings and strings are considered less than blobs.
+                If SQLITE_NULLEQ is set in P5 then the result of comparison is always either true or false and is never NULL. If both operands are NULL then the result of comparison is true. If either operand is NULL then the result is false. If neither operand is NULL the result is the same as it would be if the SQLITE_NULLEQ flag were omitted from P5.
+                This opcode saves the result of comparison for use by the new Jump opcode.
+                */
+                if (mem[ins.p3] == mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.Ne)) {
+                /*
+                This works just like the Eq opcode except that the jump is taken if the operands in registers P1 and P3 are not equal. See the Eq opcode for additional information.
+                */
+                if (mem[ins.p3] != mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.Lt)) {
+                if (mem[ins.p3] < mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.Le)) {
+                if (mem[ins.p3] <= mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.Gt)) {
+                if (mem[ins.p3] > mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.Ge)) {
+                if (mem[ins.p3] >= mem[ins.p1]) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.NotNull)) {
+                revert("unimplemented opcode");
+                // TODO: impl. NULL as 0x80..00?
+                if (mem[ins.p3] != 0) {
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            }
+            /*
+            ARITHMETIC
+            */
+            else if (ins.opcode == uint256(Opcode.AddImm)) { revert("unimplemented opcode");
+            }
+            /*
+            RECORDS
+            */
+            else if (ins.opcode == uint256(Opcode.Copy)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.SCopy)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.NewRowid)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.MakeRecord)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Insert)) { revert("unimplemented opcode");
+            }
+            /*
+            CONTROL FLOW
+            */
+            else if (ins.opcode == uint256(Opcode.Goto)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Next)) {
+                /*
+                Advance cursor P1 so that it points to the next key/data pair in its table or index. If there are no more key/value pairs then fall through to the following instruction. But if the cursor advance was successful, jump immediately to P2.
+                */
+                revert("unimplemented opcode");
                 
-            } else if (ins.opcode == uint256(Opcode.Init)) {
+            } else if (ins.opcode == uint256(Opcode.Prev)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Halt)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.HaltIfNull)) { revert("unimplemented opcode");
+            }
+            /*
+            DATABASE
+            */
+            else if (ins.opcode == uint256(Opcode.Close)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Rowid)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Column)) {
+                /*
+                Interpret the data that cursor P1 points to as a structure built using the MakeRecord instruction. (See the MakeRecord opcode for additional information about the format of the data.) Extract the P2-th column from this record. If there are less that (P2+1) values in the record, extract a NULL.
+                The value extracted is stored in register P3.
+                If the record contains fewer than P2 fields, then extract a NULL. Or, if the P4 argument is a P4_MEM use the value of the P4 argument as the result.
+                If the OPFLAG_LENGTHARG and OPFLAG_TYPEOFARG bits are set on P5 then the result is guaranteed to only be used as the argument of a length() or typeof() function, respectively. The loading of large blobs can be skipped for length() and all content loading can be skipped for typeof().
+                */
+                // TODO: impl.
+                console.log("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Rewind)) {
+                /*
+                The next use of the Rowid or Column or Next instruction for P1 will refer to the first entry in the database table or index. If the table or index is empty, jump immediately to P2. If the table or index is not empty, fall through to the following instruction.
+                This opcode leaves the cursor configured to move in forward order, from the beginning toward the end. In other words, the cursor is configured to use Next, not Prev.
+                */
+                // TODO: impl.
+                console.log("unimplemented opcode");
+            } else {
+                revert("unimplemented opcode");
             }
         }
     }

@@ -185,7 +185,7 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'select * from im where id < 12345.6 and first like "%j%"'
 query = 'insert into im(is_del, time) values (0, 123), (1, 555)'
 
-OUTPUT_BYTECODE = True
+OUTPUT_BYTECODE = False
 
 def sanitize(items):
   for i in range(len(items)):
@@ -208,5 +208,5 @@ for row in rows:
   if OUTPUT_BYTECODE:
     print('%064x%064x%064x%064x%064x%064x' % (opcode, *params), end='')
   else:
-    print('[%s] %02x %s (%s, %s, %s, %s, %s)' % (pc, opcode, op_name, *params))
+    print('[%02x] %02x %s (%x, %x, %x, %x, %x)' % (pc, opcode, op_name, *params))
 
