@@ -4,7 +4,7 @@ SQL on chain
 
 # Why?
 
-Blockchain is a database but it is hardly used as a classic database is very high. With strange account-storage trees, 32-byte slots and niche languages the friction of using such database as an actual database.
+Blockchain is a database but it is hardly used as a classic database. With strange account-storage trees, 32-byte slots and niche languages the friction of using such database as an actual database is very high.
 
 Imagine you could easily on-board the 20 million web2 developers such that the transition is seamless, while inheriting web3 properties such as security, accessibility, liveness, integrated finance, etc.
 
