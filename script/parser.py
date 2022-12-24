@@ -2,188 +2,190 @@ import sqlite3
 
 op2code = \
 {
-  'Savepoint': 0,
-  'AutoCommit': 1,
-  'Transaction': 2,
-  'SorterNext': 3, # jump
-  'Prev': 4, # jump
-  'Next': 5, # jump
-  'Checkpoint': 6,
-  'JournalMode': 7,
-  'Vacuum': 8,
-  'VFilter': 9, # jump, synopsis: iplan=r[P3] zplan='P4'
-  'VUpdate': 10, # synopsis: data=r[P3@P2]
-  'Goto': 11, # jump
-  'Gosub': 12, # jump
-  'InitCoroutine': 13, # jump
-  'Yield': 14, # jump
-  'MustBeInt': 15, # jump
-  'Jump': 16, # jump
-  'Once': 17, # jump
-  'If': 18, # jump
-  'Not': 19, # same as TK_NOT, synopsis: r[P2]= !r[P1]
-  'IfNot': 20, # jump
-  'IfNullRow': 21, # jump, synopsis: if P1.nullRow then r[P3]=NULL, goto P2,
-  'SeekLT': 22, # jump, synopsis: key=r[P3@P4]
-  'SeekLE': 23, # jump, synopsis: key=r[P3@P4]
-  'SeekGE': 24, # jump, synopsis: key=r[P3@P4]
-  'SeekGT': 25, # jump, synopsis: key=r[P3@P4]
-  'IfNotOpen': 26, # jump, synopsis: if( !csr[P1] ) goto P2
-  'IfNoHope': 27, # jump, synopsis: key=r[P3@P4]
-  'NoConflict': 28, # jump, synopsis: key=r[P3@P4]
-  'NotFound': 29, # jump, synopsis: key=r[P3@P4]
-  'Found': 30, # jump, synopsis: key=r[P3@P4]
-  'SeekRowid': 31, # jump, synopsis: intkey=r[P3]
-  'NotExists': 32, # jump, synopsis: intkey=r[P3]
-  'Last': 33, # jump
-  'IfSmaller': 34, # jump
-  'SorterSort': 35, # jump
-  'Sort': 36, # jump
-  'Rewind': 37, # jump
-  'IdxLE': 38, # jump, synopsis: key=r[P3@P4]
-  'IdxGT': 39, # jump, synopsis: key=r[P3@P4]
-  'IdxLT': 40, # jump, synopsis: key=r[P3@P4]
-  'IdxGE': 41, # jump, synopsis: key=r[P3@P4]
-  'RowSetRead': 42, # jump, synopsis: r[P3]=rowset(P1)
-  'Or': 43, # same as TK_OR, synopsis: r[P3]=(r[P1] || r[P2])
-  'And': 44, # same as TK_AND, synopsis: r[P3]=(r[P1] && r[P2])
-  'RowSetTest': 45, # jump, synopsis: if r[P3] in rowset(P1) goto P2,
-  'Program': 46, # jump
-  'FkIfZero': 47, # jump, synopsis: if fkctr[P1]==0, goto P2, #
-  'IfPos': 48, # jump, synopsis: if r[P1]>0, then r[P1]-=P3, goto P2,
-  'IfNotZero': 49, # jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2,
-  'IsNull': 50, # jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2,
-  'NotNull': 51, # jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2,
-  'Ne': 52, # jump, same as TK_NE, synopsis: IF r[P3]!=r[P1]
-  'Eq': 53, # jump, same as TK_EQ, synopsis: IF r[P3]==r[P1]
-  'Gt': 54, # jump, same as TK_GT, synopsis: IF r[P3]>r[P1]
-  'Le': 55, # jump, same as TK_LE, synopsis: IF r[P3]<=r[P1]
-  'Lt': 56, # jump, same as TK_LT, synopsis: IF r[P3]<r[P1]
-  'Ge': 57, # jump, same as TK_GE, synopsis: IF r[P3]>=r[P1]
-  'ElseNotEq': 58, # jump, same as TK_ESCAPE
-  'DecrJumpZero': 59, # jump, synopsis: if (--r[P1])==0, goto P2, #
-  'IncrVacuum': 60, # jump
-  'VNext': 61, # jump
-  'Init': 62, # jump, synopsis: Start at P2, #
-  'PureFunc': 63, # synopsis: r[P3]=func(r[P2@NP])
-  'Function': 64, # synopsis: r[P3]=func(r[P2@NP])
-  'Return': 65,
-  'EndCoroutine': 66,
-  'HaltIfNull': 67, # synopsis: if r[P3]=null halt
-  'Halt': 68,
-  'Integer': 69, # synopsis: r[P2]=P1, #
-  'Int64': 70, # synopsis: r[P2]=P4, #
-  'String': 71, # synopsis: r[P2]='P4' (len=P1)
-  'Null': 72, # synopsis: r[P2..P3]=NULL
-  'SoftNull': 73, # synopsis: r[P1]=NULL
-  'Blob': 74, # synopsis: r[P2]=P4, (len=P1)
-  'Variable': 75, # synopsis: r[P2]=parameter(P1,P4)
-  'Move': 76, # synopsis: r[P2@P3]=r[P1@P3]
-  'Copy': 77, # synopsis: r[P2@P3+1]=r[P1@P3+1]
-  'SCopy': 78, # synopsis: r[P2]=r[P1]
-  'IntCopy': 79, # synopsis: r[P2]=r[P1]
-  'ResultRow': 80, # synopsis: output=r[P1@P2]
-  'CollSeq': 81,
-  'AddImm': 82, # synopsis: r[P1]=r[P1]+P2, #
-  'RealAffinity': 83,
-  'Cast': 84, # synopsis: affinity(r[P1])
-  'Permutation': 85,
-  'Compare': 86, # synopsis: r[P1@P3] <-> r[P2@P3]
-  'IsTrue': 87, # synopsis: r[P2]': coalesce(r[P1]==TRUE,P3) ^ P4,
-  'Offset': 88, # synopsis: r[P3]': sqlite_offset(P1)
-  'Column': 89, # synopsis: r[P3]=PX
-  'Affinity': 90, # synopsis: affinity(r[P1@P2])
-  'MakeRecord': 91, # synopsis: r[P3]=mkrec(r[P1@P2])
-  'Count': 92, # synopsis: r[P2]=count()
-  'ReadCookie': 93,
-  'SetCookie': 94,
-  'ReopenIdx': 95, # synopsis: root=P2, iDb=P3, #
-  'OpenRead': 96, # synopsis: root=P2, iDb=P3, #
-  'OpenWrite': 97, # synopsis: root=P2, iDb=P3, #
-  'OpenDup': 98,
-  'OpenAutoindex': 99, # synopsis: nColumn=P2, #
-  'OpenEphemeral': 100, # synopsis: nColumn=P2, #
-  'BitAnd': 101, # same as TK_BITAND, synopsis: r[P3]=r[P1]&r[P2]
-  'BitOr': 102, # same as TK_BITOR, synopsis: r[P3]=r[P1]|r[P2]
-  'ShiftLeft': 103, # same as TK_LSHIFT, synopsis: r[P3]=r[P2]<<r[P1]
-  'ShiftRight': 104, # same as TK_RSHIFT, synopsis: r[P3]=r[P2]>>r[P1]
-  'Add': 105, # same as TK_PLUS, synopsis: r[P3]=r[P1]+r[P2]
-  'Subtract': 106, # same as TK_MINUS, synopsis: r[P3]=r[P2]-r[P1]
-  'Multiply': 107, # same as TK_STAR, synopsis: r[P3]=r[P1]*r[P2]
-  'Divide': 108, # same as TK_SLASH, synopsis: r[P3]=r[P2]/r[P1]
-  'Remainder': 109, # same as TK_REM, synopsis: r[P3]=r[P2]%r[P1]
-  'Concat': 110, # same as TK_CONCAT, synopsis: r[P3]=r[P2]+r[P1]
-  'SorterOpen': 111,
-  'BitNot': 112, # same as TK_BITNOT, synopsis: r[P2]= ~r[P1]
-  'SequenceTest': 113, # synopsis: if( cursor[P1].ctr++ ) pc': P2, #
-  'OpenPseudo': 114, # synopsis: P3, columns in r[P2]
-  'String8': 115, # same as TK_STRING, synopsis: r[P2]='P4'
-  'Close': 116,
-  'ColumnsUsed': 117,
-  'SeekHit': 118, # synopsis: seekHit=P2, #
-  'Sequence': 119, # synopsis: r[P2]=cursor[P1].ctr++
-  'NewRowid': 120, # synopsis: r[P2]=rowid
-  'Insert': 121, # synopsis: intkey=r[P3] data=r[P2]
-  'Delete': 122,
-  'ResetCount': 123,
-  'SorterCompare': 124, # synopsis: if key(P1)!=trim(r[P3],P4) goto P2,
-  'SorterData': 125, # synopsis: r[P2]=data
-  'RowData': 126, # synopsis: r[P2]=data
-  'Rowid': 127, # synopsis: r[P2]=rowid
-  'NullRow': 128,
-  'SeekEnd': 129,
-  'IdxInsert': 130, # synopsis: key=r[P2]
-  'SorterInsert': 131, # synopsis: key=r[P2]
-  'IdxDelete': 132, # synopsis: key=r[P2@P3]
-  'DeferredSeek': 133, # synopsis: Move P3, to P1.rowid if needed
-  'IdxRowid': 134, # synopsis: r[P2]=rowid
-  'FinishSeek': 135,
-  'Destroy': 136,
-  'Clear': 137,
-  'ResetSorter': 138,
-  'CreateBtree': 139, # synopsis: r[P2]=root iDb=P1, flags=P3, #
-  'SqlExec': 140,
-  'ParseSchema': 141,
-  'LoadAnalysis': 142,
-  'DropTable': 143,
-  'DropIndex': 144,
-  'DropTrigger': 145,
-  'IntegrityCk': 146,
-  'RowSetAdd': 147, # synopsis: rowset(P1)=r[P2]
-  'Param': 148,
-  'FkCounter': 149, # synopsis: fkctr[P1]+=P2, #
-  'Real': 150, # same as TK_FLOAT, synopsis: r[P2]=P4, #
-  'MemMax': 151, # synopsis: r[P1]=max(r[P1],r[P2])
-  'OffsetLimit': 152, # synopsis: if r[P1]>0, then r[P2]=r[P1]+max(0,r[P3]) else r[P2]=(-1)
-  'AggInverse': 153, # synopsis: accum=r[P3] inverse(r[P2@P5])
-  'AggStep': 154, # synopsis: accum=r[P3] step(r[P2@P5])
-  'AggStep1': 155, # synopsis: accum=r[P3] step(r[P2@P5])
-  'AggValue': 156, # synopsis: r[P3]=value N=P2, #
-  'AggFinal': 157, # synopsis: accum=r[P1] N=P2, #
-  'Expire': 158,
-  'CursorLock': 159,
-  'CursorUnlock': 160,
-  'TableLock': 161, # synopsis: iDb=P1, root=P2, write=P3, #
-  'VBegin': 162,
-  'VCreate': 163,
-  'VDestroy': 164,
-  'VOpen': 165,
-  'VColumn': 166, # synopsis: r[P3]=vcolumn(P2)
-  'VRename': 167,
-  'Pagecount': 168,
-  'MaxPgcnt': 169,
-  'Trace': 170,
-  'CursorHint': 171,
-  'ReleaseReg': 172, # synopsis: release r[P1@P2] mask P3, #
-  'Noop': 173,
-  'Explain': 174,
+  'Savepoint': (0, False),
+  'AutoCommit': (1, False),
+  'Transaction': (2, True),
+  'SorterNext': (3, False), # jump
+  'Prev': (4, True), # jump
+  'Next': (5, True), # jump
+  'Checkpoint': (6, False),
+  'JournalMode': (7, False),
+  'Vacuum': (8, False),
+  'VFilter': (9, False), # jump, synopsis: iplan=r[P3] zplan='P4'
+  'VUpdate': (10, False), # synopsis: data=r[P3@P2]
+  'Goto': (11, True), # jump
+  'Gosub': (12, False), # jump
+  'InitCoroutine': (13, False), # jump
+  'Yield': (14, False), # jump
+  'MustBeInt': (15, False), # jump
+  'Jump': (16, False), # jump
+  'Once': (17, False), # jump
+  'If': (18, False), # jump
+  'Not': (19, False), # same as TK_NOT, synopsis: r[P2]= !r[P1]
+  'IfNot': (20, False), # jump
+  'IfNullRow': (21, False), # jump, synopsis: if P1.nullRow then r[P3]=NULL, goto P2,
+  'SeekLT': (22, False), # jump, synopsis: key=r[P3@P4]
+  'SeekLE': (23, False), # jump, synopsis: key=r[P3@P4]
+  'SeekGE': (24, False), # jump, synopsis: key=r[P3@P4]
+  'SeekGT': (25, False), # jump, synopsis: key=r[P3@P4]
+  'IfNotOpen': (26, False), # jump, synopsis: if( !csr[P1] ) goto P2
+  'IfNoHope': (27, False), # jump, synopsis: key=r[P3@P4]
+  'NoConflict': (28, False), # jump, synopsis: key=r[P3@P4]
+  'NotFound': (29, False), # jump, synopsis: key=r[P3@P4]
+  'Found': (30, False), # jump, synopsis: key=r[P3@P4]
+  'SeekRowid': (31, False), # jump, synopsis: intkey=r[P3]
+  'NotExists': (32, False), # jump, synopsis: intkey=r[P3]
+  'Last': (33, False), # jump
+  'IfSmaller': (34, False), # jump
+  'SorterSort': (35, False), # jump
+  'Sort': (36, False), # jump
+  'Rewind': (37, True), # jump
+  'IdxLE': (38, False), # jump, synopsis: key=r[P3@P4]
+  'IdxGT': (39, False), # jump, synopsis: key=r[P3@P4]
+  'IdxLT': (40, False), # jump, synopsis: key=r[P3@P4]
+  'IdxGE': (41, False), # jump, synopsis: key=r[P3@P4]
+  'RowSetRead': (42, False), # jump, synopsis: r[P3]=rowset(P1)
+  'Or': (43, False), # same as TK_OR, synopsis: r[P3]=(r[P1] || r[P2])
+  'And': (44, False), # same as TK_AND, synopsis: r[P3]=(r[P1] && r[P2])
+  'RowSetTest': (45, False), # jump, synopsis: if r[P3] in rowset(P1) goto P2,
+  'Program': (46, False), # jump
+  'FkIfZero': (47, False), # jump, synopsis: if fkctr[P1]==0, goto P2, #
+  'IfPos': (48, False), # jump, synopsis: if r[P1]>0, then r[P1]-=P3, goto P2,
+  'IfNotZero': (49, False), # jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2,
+  'IsNull': (50, False), # jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2,
+  'NotNull': (51, False), # jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2,
+  'Ne': (52, False), # jump, same as TK_NE, synopsis: IF r[P3]!=r[P1]
+  'Eq': (53, False), # jump, same as TK_EQ, synopsis: IF r[P3]==r[P1]
+  'Gt': (54, False), # jump, same as TK_GT, synopsis: IF r[P3]>r[P1]
+  'Le': (55, False), # jump, same as TK_LE, synopsis: IF r[P3]<=r[P1]
+  'Lt': (56, False), # jump, same as TK_LT, synopsis: IF r[P3]<r[P1]
+  'Ge': (57, False), # jump, same as TK_GE, synopsis: IF r[P3]>=r[P1]
+  'ElseNotEq': (58, False), # jump, same as TK_ESCAPE
+  'DecrJumpZero': (59, False), # jump, synopsis: if (--r[P1])==0, goto P2, #
+  'IncrVacuum': (60, False), # jump
+  'VNext': (61, False), # jump
+  'Init': (62, True), # jump, synopsis: Start at P2, #
+  'PureFunc': (63, False), # synopsis: r[P3]=func(r[P2@NP])
+  'Function': (64, False), # synopsis: r[P3]=func(r[P2@NP])
+  'Return': (65, False),
+  'EndCoroutine': (66, False),
+  'HaltIfNull': (67, False), # synopsis: if r[P3]=null halt
+  'Halt': (68, True),
+  'Integer': (69, False), # synopsis: r[P2]=P1, #
+  'Int64': (70, False), # synopsis: r[P2]=P4, #
+  'String': (71, False), # synopsis: r[P2]='P4' (len=P1)
+  'Null': (72, False), # synopsis: r[P2..P3]=NULL
+  'SoftNull': (73, False), # synopsis: r[P1]=NULL
+  'Blob': (74, False), # synopsis: r[P2]=P4, (len=P1)
+  'Variable': (75, False), # synopsis: r[P2]=parameter(P1,P4)
+  'Move': (76, False), # synopsis: r[P2@P3]=r[P1@P3]
+  'Copy': (77, False), # synopsis: r[P2@P3+1]=r[P1@P3+1]
+  'SCopy': (78, False), # synopsis: r[P2]=r[P1]
+  'IntCopy': (79, False), # synopsis: r[P2]=r[P1]
+  'ResultRow': (80, True), # synopsis: output=r[P1@P2]
+  'CollSeq': (81, False),
+  'AddImm': (82, False), # synopsis: r[P1]=r[P1]+P2, #
+  'RealAffinity': (83, False),
+  'Cast': (84, False), # synopsis: affinity(r[P1])
+  'Permutation': (85, False),
+  'Compare': (86, False), # synopsis: r[P1@P3] <-> r[P2@P3]
+  'IsTrue': (87, False), # synopsis: r[P2]': coalesce(r[P1]==TRUE,P3) ^ P4,
+  'Offset': (88, False), # synopsis: r[P3]': sqlite_offset(P1)
+  'Column': (89, True), # synopsis: r[P3]=PX
+  'Affinity': (90, False), # synopsis: affinity(r[P1@P2])
+  'MakeRecord': (91, False), # synopsis: r[P3]=mkrec(r[P1@P2])
+  'Count': (92, False), # synopsis: r[P2]=count()
+  'ReadCookie': (93, False),
+  'SetCookie': (94, False),
+  'ReopenIdx': (95, False), # synopsis: root=P2, iDb=P3, #
+  'OpenRead': (96, False), # synopsis: root=P2, iDb=P3, #
+  'OpenWrite': (97, False), # synopsis: root=P2, iDb=P3, #
+  'OpenDup': (98, False),
+  'OpenAutoindex': (99, False), # synopsis: nColumn=P2, #
+  'OpenEphemeral': (100, False), # synopsis: nColumn=P2, #
+  'BitAnd': (101, False), # same as TK_BITAND, synopsis: r[P3]=r[P1]&r[P2]
+  'BitOr': (102, False), # same as TK_BITOR, synopsis: r[P3]=r[P1]|r[P2]
+  'ShiftLeft': (103, False), # same as TK_LSHIFT, synopsis: r[P3]=r[P2]<<r[P1]
+  'ShiftRight': (104, False), # same as TK_RSHIFT, synopsis: r[P3]=r[P2]>>r[P1]
+  'Add': (105, False), # same as TK_PLUS, synopsis: r[P3]=r[P1]+r[P2]
+  'Subtract': (106, False), # same as TK_MINUS, synopsis: r[P3]=r[P2]-r[P1]
+  'Multiply': (107, False), # same as TK_STAR, synopsis: r[P3]=r[P1]*r[P2]
+  'Divide': (108, False), # same as TK_SLASH, synopsis: r[P3]=r[P2]/r[P1]
+  'Remainder': (109, False), # same as TK_REM, synopsis: r[P3]=r[P2]%r[P1]
+  'Concat': (110, False), # same as TK_CONCAT, synopsis: r[P3]=r[P2]+r[P1]
+  'SorterOpen': (111, False),
+  'BitNot': (112, False), # same as TK_BITNOT, synopsis: r[P2]= ~r[P1]
+  'SequenceTest': (113, False), # synopsis: if( cursor[P1].ctr++ ) pc': P2, #
+  'OpenPseudo': (114, False), # synopsis: P3, columns in r[P2]
+  'String8': (115, False), # same as TK_STRING, synopsis: r[P2]='P4'
+  'Close': (116, False),
+  'ColumnsUsed': (117, False),
+  'SeekHit': (118, False), # synopsis: seekHit=P2, #
+  'Sequence': (119, False), # synopsis: r[P2]=cursor[P1].ctr++
+  'NewRowid': (120, False), # synopsis: r[P2]=rowid
+  'Insert': (121, False), # synopsis: intkey=r[P3] data=r[P2]
+  'Delete': (122, False),
+  'ResetCount': (123, False),
+  'SorterCompare': (124, False), # synopsis: if key(P1)!=trim(r[P3],P4) goto P2,
+  'SorterData': (125, False), # synopsis: r[P2]=data
+  'RowData': (126, False), # synopsis: r[P2]=data
+  'Rowid': (127, True), # synopsis: r[P2]=rowid
+  'NullRow': (128, False),
+  'SeekEnd': (129, False),
+  'IdxInsert': (130, False), # synopsis: key=r[P2]
+  'SorterInsert': (131, False), # synopsis: key=r[P2]
+  'IdxDelete': (132, False), # synopsis: key=r[P2@P3]
+  'DeferredSeek': (133, False), # synopsis: Move P3, to P1.rowid if needed
+  'IdxRowid': (134, False), # synopsis: r[P2]=rowid
+  'FinishSeek': (135, False),
+  'Destroy': (136, False),
+  'Clear': (137, False),
+  'ResetSorter': (138, False),
+  'CreateBtree': (139, False), # synopsis: r[P2]=root iDb=P1, flags=P3, #
+  'SqlExec': (140, False),
+  'ParseSchema': (141, False),
+  'LoadAnalysis': (142, False),
+  'DropTable': (143, False),
+  'DropIndex': (144, False),
+  'DropTrigger': (145, False),
+  'IntegrityCk': (146, False),
+  'RowSetAdd': (147, False), # synopsis: rowset(P1)=r[P2]
+  'Param': (148, False),
+  'FkCounter': (149, False), # synopsis: fkctr[P1]+=P2, #
+  'Real': (150, False), # same as TK_FLOAT, synopsis: r[P2]=P4, #
+  'MemMax': (151, False), # synopsis: r[P1]=max(r[P1],r[P2])
+  'OffsetLimit': (152, False), # synopsis: if r[P1]>0, then r[P2]=r[P1]+max(0,r[P3]) else r[P2]=(-1)
+  'AggInverse': (153, False), # synopsis: accum=r[P3] inverse(r[P2@P5])
+  'AggStep': (154, False), # synopsis: accum=r[P3] step(r[P2@P5])
+  'AggStep1': (155, False), # synopsis: accum=r[P3] step(r[P2@P5])
+  'AggValue': (156, False), # synopsis: r[P3]=value N=P2, #
+  'AggFinal': (157, False), # synopsis: accum=r[P1] N=P2, #
+  'Expire': (158, False),
+  'CursorLock': (159, False),
+  'CursorUnlock': (160, False),
+  'TableLock': (161, False), # synopsis: iDb=P1, root=P2, write=P3, #
+  'VBegin': (162, False),
+  'VCreate': (163, False),
+  'VDestroy': (164, False),
+  'VOpen': (165, False),
+  'VColumn': (166, False), # synopsis: r[P3]=vcolumn(P2)
+  'VRename': (167, False),
+  'Pagecount': (168, False),
+  'MaxPgcnt': (169, False),
+  'Trace': (170, False),
+  'CursorHint': (171, False),
+  'ReleaseReg': (172, False), # synopsis: release r[P1@P2] mask P3, #
+  'Noop': (173, True),
+  'Explain': (174, True),
   'Abortable': 175
 }
 
 code2op = { value: key for (key, value) in op2code.items() }
 
 #query = 'select * from im where id < 12345.6 and first like "%j%"'
-query = 'insert into im(is_del, time) values (0, 123), (1, 555)'
+#query = 'insert into im(is_del, time) values (0, 123), (1, 555)'
+#query = 'CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER)'
+query = 'select * from test'
 
 OUTPUT_BYTECODE = False
 
@@ -200,13 +202,20 @@ db = sqlite3.connect('./test.sqlite')
 cur = db.cursor()
 res = cur.execute('explain ' + query)
 rows = res.fetchall()
+output = ''
 for row in rows:
   pc, op_name, p1, p2, p3, p4, p5, comment = row
   params = sanitize(list(row[2:7]))
-  opcode = op2code[op_name]
-  
+  opcode, is_supported = op2code[op_name]
+
   if OUTPUT_BYTECODE:
-    print('%064x%064x%064x%064x%064x%064x' % (opcode, *params), end='')
+    if not is_supported:
+      print('OPCODE "%s" IS NOT SUPPORTED!' % op_name)
+      #exit(0)
+    
+    output += '%064x%064x%064x%064x%064x%064x' % (opcode, *params)
   else:
     print('[%02x] %02x %s (%x, %x, %x, %x, %x)' % (pc, opcode, op_name, *params))
 
+if output:
+  print(output)

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "./RedBlackBinaryTree.sol";
+
 import "forge-std/console.sol";
 
 enum Opcode {
@@ -183,6 +185,8 @@ enum Opcode {
 }
 
 contract Sqlite {
+    using RedBlackBinaryTree for RedBlackBinaryTree.Tree;
+
     struct Instruction {
         uint256 opcode;
         uint256 p1;
@@ -192,15 +196,41 @@ contract Sqlite {
         uint256 p5;
     }
 
+    // mapping (uint256 => RedBlackBinaryTree.Tree) public trees;
+    RedBlackBinaryTree.Tree public main;
+
+    constructor() {
+        main.insert(4, 99);
+        main.insert(5, 999);
+        main.insert(6, 1001);
+        main.insert(1, 5);
+        main.insert(2, 25);
+        main.insert(3, 125);
+    }
+
     uint256 immutable INS_SIZE = 32 * 6;
 
     function execute(bytes calldata bytecode) public payable {
         uint256[100] memory mem;
+        
+        // rowid should start at 1...
+        uint256 rowid = 0;
 
-        for (uint256 pc = 0; pc < bytecode.length; pc += INS_SIZE) {
+        // cache table size
+        uint256 main_size = main.size;
+
+        Instruction memory ins = abi.decode(bytecode[0:INS_SIZE], (Instruction));
+
+        // always start with Init opcode
+        require(ins.opcode == uint256(Opcode.Init), "must start with Init opcode");
+        uint256 init_pc = ins.p2 * INS_SIZE;
+        if (init_pc == 0)
+            init_pc = INS_SIZE;
+
+        for (uint256 pc = init_pc; pc < bytecode.length; pc += INS_SIZE) {
             require(pc + INS_SIZE <= bytecode.length, "unexpected bytecode end");
             Instruction memory ins = abi.decode(bytecode[pc:pc + INS_SIZE], (Instruction));
-            console.log("%s: %s", uint256(ins.opcode), ins.p1);
+            // console.log("%s - ???", uint256(ins.opcode));
 
             if (ins.opcode == uint256(Opcode.Init)) {
                 // advance PC (-1 because the loop will advance one more INS_SIZE)
@@ -211,8 +241,10 @@ contract Sqlite {
             */
             else if (ins.opcode == uint256(Opcode.Transaction)) {
                 // TODO: impl. no op for now
+                console.log("Transaction started (ignored)");
             } else if (ins.opcode == uint256(Opcode.OpenRead)) {
                 // TODO: impl. no op for now
+                console.log("OpenRead ignored");
             } else if (ins.opcode == uint256(Opcode.OpenWrite)) {
                 // TODO: impl. no op for now
             } else if (ins.opcode == uint256(Opcode.Init)) { revert("unimplemented opcode");
@@ -223,8 +255,10 @@ contract Sqlite {
             /*
             CONSTANTS
             */
-            else if (ins.opcode == uint256(Opcode.Integer)) { revert("unimplemented opcode");
-            } else if (ins.opcode == uint256(Opcode.Real)) { revert("unimplemented opcode");
+            else if (ins.opcode == uint256(Opcode.Integer)) {
+                mem[ins.p2] = ins.p1;
+            } else if (ins.opcode == uint256(Opcode.Real)) {
+                mem[ins.p2] = ins.p4;
             } else if (ins.opcode == uint256(Opcode.String)) {
                 /*
                 The string value P4 of length P1 (bytes) is stored in register P2.
@@ -309,22 +343,37 @@ contract Sqlite {
             /*
             CONTROL FLOW
             */
-            else if (ins.opcode == uint256(Opcode.Goto)) { revert("unimplemented opcode");
+            else if (ins.opcode == uint256(Opcode.Goto)) {
+                pc = ins.p2 * INS_SIZE;
+                // console.log("Goto %s", ins.p2);
+            } else if (ins.opcode == uint256(Opcode.Prev)) {
+                // TODO: is this ok?
+                rowid--;
+                // jump if has more rows
+                if (rowid > 0)
+                    pc = (ins.p2 - 1) * INS_SIZE;
             } else if (ins.opcode == uint256(Opcode.Next)) {
                 /*
                 Advance cursor P1 so that it points to the next key/data pair in its table or index. If there are no more key/value pairs then fall through to the following instruction. But if the cursor advance was successful, jump immediately to P2.
                 */
-                revert("unimplemented opcode");
-                
-            } else if (ins.opcode == uint256(Opcode.Prev)) { revert("unimplemented opcode");
-            } else if (ins.opcode == uint256(Opcode.Halt)) { revert("unimplemented opcode");
+                rowid++;
+                // simulate items only once...
+                // jump if has more rows
+                if (rowid <= main_size)
+                    pc = (ins.p2 - 1) * INS_SIZE;
+            } else if (ins.opcode == uint256(Opcode.Halt)) {
+                console.log("Halt.");
+                break;
             } else if (ins.opcode == uint256(Opcode.HaltIfNull)) { revert("unimplemented opcode");
             }
             /*
             DATABASE
             */
             else if (ins.opcode == uint256(Opcode.Close)) { revert("unimplemented opcode");
-            } else if (ins.opcode == uint256(Opcode.Rowid)) { revert("unimplemented opcode");
+            } else if (ins.opcode == uint256(Opcode.Rowid)) {
+                // TODO: take rowid with respect to table entry p1
+                mem[ins.p2] = rowid;
+                console.log("Rowid %s", rowid);
             } else if (ins.opcode == uint256(Opcode.Column)) {
                 /*
                 Interpret the data that cursor P1 points to as a structure built using the MakeRecord instruction. (See the MakeRecord opcode for additional information about the format of the data.) Extract the P2-th column from this record. If there are less that (P2+1) values in the record, extract a NULL.
@@ -332,16 +381,35 @@ contract Sqlite {
                 If the record contains fewer than P2 fields, then extract a NULL. Or, if the P4 argument is a P4_MEM use the value of the P4 argument as the result.
                 If the OPFLAG_LENGTHARG and OPFLAG_TYPEOFARG bits are set on P5 then the result is guaranteed to only be used as the argument of a length() or typeof() function, respectively. The loading of large blobs can be skipped for length() and all content loading can be skipped for typeof().
                 */
-                // TODO: impl.
-                console.log("unimplemented opcode");
+                // TODO: instead of pc need to extract p2-th element from table p1 (or null)
+                mem[ins.p3] = main.key(rowid);
+                // console.log("Column unimplemented");
+            } else if (ins.opcode == uint256(Opcode.ResultRow)) {
+                console.log("ResultRow output: (%s columns)", ins.p2);
+                for (uint256 i = 0; i < ins.p2; i++) {
+                    console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
+                }
+                // TODO: emit row as log?
             } else if (ins.opcode == uint256(Opcode.Rewind)) {
                 /*
                 The next use of the Rowid or Column or Next instruction for P1 will refer to the first entry in the database table or index. If the table or index is empty, jump immediately to P2. If the table or index is not empty, fall through to the following instruction.
                 This opcode leaves the cursor configured to move in forward order, from the beginning toward the end. In other words, the cursor is configured to use Next, not Prev.
                 */
-                // TODO: impl.
-                console.log("unimplemented opcode");
+                // TODO: jump to p2 if needed
+                // rowid should start at 1.
+                rowid = 1;
+                // console.log("Rewind partially implemented");
+            } else if (ins.opcode == uint256(Opcode.Last)) {
+                // TODO: set rowid to the last element in the table
+                //rowid = -1;
+                rowid = main.size;
+            } else if (ins.opcode == uint256(Opcode.Noop)) {
+                // no-op
+            } else if (ins.opcode == uint256(Opcode.Explain)) {
+                // no-op (?)
+                // console.log("Explain (ignored)");
             } else {
+                console.log("%s: UNKNOWN OPCODE", uint256(ins.opcode), ins.p1);
                 revert("unimplemented opcode");
             }
         }
