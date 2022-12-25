@@ -353,6 +353,8 @@ contract Sqlite {
                 // NOTE: doc is very unclear about flag == 0x08...
                 uint256 key = mem[ins.p3];
                 uint256 value = mem[ins.p2];
+                if (value == 0) // TODO: remove this stupid patch...
+                    value = 9999999;
                 console.log("Insert %s -> %s", key, value);
                 main.insert(key, value);
                 main_size++;
