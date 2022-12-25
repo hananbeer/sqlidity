@@ -1,3 +1,4 @@
+import sys
 import sqlite3
 
 op2code = \
@@ -17,10 +18,10 @@ op2code = \
   'Gosub': (12, False), # jump
   'InitCoroutine': (13, False), # jump
   'Yield': (14, False), # jump
-  'MustBeInt': (15, False), # jump
+  'MustBeInt': (15, True), # jump
   'Jump': (16, False), # jump
   'Once': (17, False), # jump
-  'If': (18, False), # jump
+  'If': (18, True), # jump
   'Not': (19, False), # same as TK_NOT, synopsis: r[P2]= !r[P1]
   'IfNot': (20, False), # jump
   'IfNullRow': (21, False), # jump, synopsis: if P1.nullRow then r[P3]=NULL, goto P2,
@@ -34,8 +35,8 @@ op2code = \
   'NotFound': (29, False), # jump, synopsis: key=r[P3@P4]
   'Found': (30, False), # jump, synopsis: key=r[P3@P4]
   'SeekRowid': (31, False), # jump, synopsis: intkey=r[P3]
-  'NotExists': (32, False), # jump, synopsis: intkey=r[P3]
-  'Last': (33, False), # jump
+  'NotExists': (32, True), # jump, synopsis: intkey=r[P3]
+  'Last': (33, True), # jump
   'IfSmaller': (34, False), # jump
   'SorterSort': (35, False), # jump
   'Sort': (36, False), # jump
@@ -53,13 +54,13 @@ op2code = \
   'IfPos': (48, False), # jump, synopsis: if r[P1]>0, then r[P1]-=P3, goto P2,
   'IfNotZero': (49, False), # jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2,
   'IsNull': (50, False), # jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2,
-  'NotNull': (51, False), # jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2,
-  'Ne': (52, False), # jump, same as TK_NE, synopsis: IF r[P3]!=r[P1]
-  'Eq': (53, False), # jump, same as TK_EQ, synopsis: IF r[P3]==r[P1]
-  'Gt': (54, False), # jump, same as TK_GT, synopsis: IF r[P3]>r[P1]
-  'Le': (55, False), # jump, same as TK_LE, synopsis: IF r[P3]<=r[P1]
-  'Lt': (56, False), # jump, same as TK_LT, synopsis: IF r[P3]<r[P1]
-  'Ge': (57, False), # jump, same as TK_GE, synopsis: IF r[P3]>=r[P1]
+  'NotNull': (51, True), # jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2,
+  'Ne': (52, True), # jump, same as TK_NE, synopsis: IF r[P3]!=r[P1]
+  'Eq': (53, True), # jump, same as TK_EQ, synopsis: IF r[P3]==r[P1]
+  'Gt': (54, True), # jump, same as TK_GT, synopsis: IF r[P3]>r[P1]
+  'Le': (55, True), # jump, same as TK_LE, synopsis: IF r[P3]<=r[P1]
+  'Lt': (56, True), # jump, same as TK_LT, synopsis: IF r[P3]<r[P1]
+  'Ge': (57, True), # jump, same as TK_GE, synopsis: IF r[P3]>=r[P1]
   'ElseNotEq': (58, False), # jump, same as TK_ESCAPE
   'DecrJumpZero': (59, False), # jump, synopsis: if (--r[P1])==0, goto P2, #
   'IncrVacuum': (60, False), # jump
@@ -71,12 +72,12 @@ op2code = \
   'EndCoroutine': (66, False),
   'HaltIfNull': (67, False), # synopsis: if r[P3]=null halt
   'Halt': (68, True),
-  'Integer': (69, False), # synopsis: r[P2]=P1, #
+  'Integer': (69, True), # synopsis: r[P2]=P1, #
   'Int64': (70, False), # synopsis: r[P2]=P4, #
   'String': (71, False), # synopsis: r[P2]='P4' (len=P1)
-  'Null': (72, False), # synopsis: r[P2..P3]=NULL
-  'SoftNull': (73, False), # synopsis: r[P1]=NULL
-  'Blob': (74, False), # synopsis: r[P2]=P4, (len=P1)
+  'Null': (72, True), # synopsis: r[P2..P3]=NULL
+  'SoftNull': (73, True), # synopsis: r[P1]=NULL
+  'Blob': (74, True), # synopsis: r[P2]=P4, (len=P1)
   'Variable': (75, False), # synopsis: r[P2]=parameter(P1,P4)
   'Move': (76, False), # synopsis: r[P2@P3]=r[P1@P3]
   'Copy': (77, False), # synopsis: r[P2@P3+1]=r[P1@P3+1]
@@ -93,13 +94,13 @@ op2code = \
   'Offset': (88, False), # synopsis: r[P3]': sqlite_offset(P1)
   'Column': (89, True), # synopsis: r[P3]=PX
   'Affinity': (90, False), # synopsis: affinity(r[P1@P2])
-  'MakeRecord': (91, False), # synopsis: r[P3]=mkrec(r[P1@P2])
+  'MakeRecord': (91, True), # synopsis: r[P3]=mkrec(r[P1@P2])
   'Count': (92, False), # synopsis: r[P2]=count()
-  'ReadCookie': (93, False),
-  'SetCookie': (94, False),
+  'ReadCookie': (93, True),
+  'SetCookie': (94, True),
   'ReopenIdx': (95, False), # synopsis: root=P2, iDb=P3, #
-  'OpenRead': (96, False), # synopsis: root=P2, iDb=P3, #
-  'OpenWrite': (97, False), # synopsis: root=P2, iDb=P3, #
+  'OpenRead': (96, True), # synopsis: root=P2, iDb=P3, #
+  'OpenWrite': (97, True), # synopsis: root=P2, iDb=P3, #
   'OpenDup': (98, False),
   'OpenAutoindex': (99, False), # synopsis: nColumn=P2, #
   'OpenEphemeral': (100, False), # synopsis: nColumn=P2, #
@@ -122,8 +123,8 @@ op2code = \
   'ColumnsUsed': (117, False),
   'SeekHit': (118, False), # synopsis: seekHit=P2, #
   'Sequence': (119, False), # synopsis: r[P2]=cursor[P1].ctr++
-  'NewRowid': (120, False), # synopsis: r[P2]=rowid
-  'Insert': (121, False), # synopsis: intkey=r[P3] data=r[P2]
+  'NewRowid': (120, True), # synopsis: r[P2]=rowid
+  'Insert': (121, True), # synopsis: intkey=r[P3] data=r[P2]
   'Delete': (122, False),
   'ResetCount': (123, False),
   'SorterCompare': (124, False), # synopsis: if key(P1)!=trim(r[P3],P4) goto P2,
@@ -141,9 +142,9 @@ op2code = \
   'Destroy': (136, False),
   'Clear': (137, False),
   'ResetSorter': (138, False),
-  'CreateBtree': (139, False), # synopsis: r[P2]=root iDb=P1, flags=P3, #
+  'CreateBtree': (139, True), # synopsis: r[P2]=root iDb=P1, flags=P3, #
   'SqlExec': (140, False),
-  'ParseSchema': (141, False),
+  'ParseSchema': (141, True),
   'LoadAnalysis': (142, False),
   'DropTable': (143, False),
   'DropIndex': (144, False),
@@ -184,17 +185,20 @@ code2op = { value: key for (key, value) in op2code.items() }
 
 #query = 'select * from im where id < 12345.6 and first like "%j%"'
 #query = 'insert into im(is_del, time) values (0, 123), (1, 555)'
-#query = 'CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER)'
-query = 'select * from test'
+#query = 'CREATE TABLE test2 (id INTEGER PRIMARY KEY, value INTEGER)'
+#query = 'select * from test'
+query = 'insert into test(id, value) values(7, 555)'
 
-OUTPUT_BYTECODE = False
+OUTPUT_BYTECODE = True
 
 def sanitize(items):
   for i in range(len(items)):
     if items[i] is None:
       items[i] = 0
     elif type(items[i]) == str:
-      items[i] = int(bytes(items[i], 'utf8').hex(), 16)
+      if len(items[i]) > 32:
+        print('WARNING: trimming string too long: "%s"' % items[i], file=sys.stderr)
+      items[i] = int(bytes(items[i][:32], 'utf8').hex(), 16)
   
   return items
 
@@ -210,12 +214,12 @@ for row in rows:
 
   if OUTPUT_BYTECODE:
     if not is_supported:
-      print('OPCODE "%s" IS NOT SUPPORTED!' % op_name)
+      print('OPCODE "%s" IS NOT SUPPORTED!' % op_name, file=sys.stderr)
       #exit(0)
     
     output += '%064x%064x%064x%064x%064x%064x' % (opcode, *params)
-  else:
-    print('[%02x] %02x %s (%x, %x, %x, %x, %x)' % (pc, opcode, op_name, *params))
+
+  print('[%02x] %02x %s (%x, %x, %x, %x, %x)' % (pc, opcode, op_name, *params), file=sys.stderr)
 
 if output:
-  print(output)
+  print('// %s;\n\t\t\tsqlite.execute(hex"%s");' % (query, output))
