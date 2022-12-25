@@ -21,16 +21,17 @@ contract Sqlite {
     uint256 immutable INS_SIZE = 32 * 6;
     
     // mapping (uint256 => RedBlackBinaryTree.Tree) public trees;
-    RedBlackBinaryTree.Tree public main;
-    RedBlackBinaryTree.Tree public idx;
+    RedBlackBinaryTree.Tree[] public tables;
 
     constructor() {
-        main.insert(4, 99);
-        main.insert(5, 999);
-        main.insert(6, 1001);
-        main.insert(1, 5);
-        main.insert(2, 25);
-        main.insert(3, 125);
+        RedBlackBinaryTree.Tree table = new RedBlackBinaryTree.Tree();
+        tables.push(table)
+        table.insert(4, 99);
+        table.insert(5, 999);
+        table.insert(6, 1001);
+        table.insert(1, 5);
+        table.insert(2, 25);
+        table.insert(3, 125);
     }
 
     function bytes32ToLiteralString(bytes32 data) 
@@ -69,7 +70,7 @@ contract Sqlite {
         uint256 rowid = 0;
 
         // cache table size
-        uint256 main_size = main.size;
+        uint256 main_size = tables[0].size;
 
         Instruction memory ins = abi.decode(bytecode[0:INS_SIZE], (Instruction));
 
@@ -235,7 +236,7 @@ contract Sqlite {
                 // TODO: is it p1 or mem[p1] ???
                 uint256 index = mem[ins.p3];
                 console.log("NotExists; index: %s, jump: %s", index, ins.p2);
-                if (main.keyExists(index)) {
+                if (tables[0].keyExists(index)) {
                     console.log("  \\--> key exists.");
                 } else {
                     console.log("  \\--> key DOES NOT exist.");
@@ -255,7 +256,7 @@ contract Sqlite {
                 // TODO: check all P4 arguments (or blob if P4 == 0)
                 uint256 index = mem[ins.p3];
                 console.log("NoConflict; cursor: %s, p3: %s, p4: %s", ins.p1, ins.p3, ins.p4);
-                if (main.keyExists(index)) {
+                if (tables[0].keyExists(index)) {
                     console.log("  \\--> CONFLICT!");
                 } else {
                     // if there is no conflict, jump to p2
@@ -352,7 +353,7 @@ contract Sqlite {
                 if (value == 0) // TODO: remove this stupid patch...
                     value = 9999999;
                 console.log("Insert %s -> %s", key, value);
-                main.insert(key, value);
+                tables[0].insert(key, value);
                 main_size++;
             } else if (ins.opcode == uint256(Opcode.IdxInsert)) {
                 // NOTE: doc is very unclear about flag == 0x08...
@@ -435,7 +436,7 @@ contract Sqlite {
                 If the OPFLAG_LENGTHARG and OPFLAG_TYPEOFARG bits are set on P5 then the result is guaranteed to only be used as the argument of a length() or typeof() function, respectively. The loading of large blobs can be skipped for length() and all content loading can be skipped for typeof().
                 */
                 // TODO: instead of pc need to extract p2-th element from table p1 (or null)
-                mem[ins.p3] = main.key(rowid);
+                mem[ins.p3] = tables[0].key(rowid);
                 console.log("Column %s -> %s", rowid, mem[ins.p3]);
             } else if (ins.opcode == uint256(Opcode.Affinity)) {
                 console.log("Affinity (ignored: %s)", ins.p4);
@@ -457,7 +458,7 @@ contract Sqlite {
             } else if (ins.opcode == uint256(Opcode.Last)) {
                 // TODO: set rowid to the last element in the table
                 //rowid = -1;
-                rowid = main.size;
+                rowid = tables[0].size;
                 console.log("Last %s (partially implemented)", rowid);
             } else if (ins.opcode == uint256(Opcode.Noop)) {
                 // no-op
