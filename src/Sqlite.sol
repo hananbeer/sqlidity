@@ -22,6 +22,7 @@ contract Sqlite {
     
     // mapping (uint256 => RedBlackBinaryTree.Tree) public trees;
     RedBlackBinaryTree.Tree public main;
+    RedBlackBinaryTree.Tree public idx;
 
     constructor() {
         main.insert(4, 99);
@@ -30,12 +31,6 @@ contract Sqlite {
         main.insert(1, 5);
         main.insert(2, 25);
         main.insert(3, 125);
-
-        uint256 size;
-        assembly {
-            size := extcodesize(address())
-        }
-        console.log("CODEsize: %s", size);
     }
 
     function bytes32ToLiteralString(bytes32 data) 
@@ -66,6 +61,7 @@ contract Sqlite {
         
         result = string(temp);
     }
+
     function execute(bytes calldata bytecode) public payable {
         uint256[100] memory mem;
         
@@ -359,7 +355,14 @@ contract Sqlite {
                 main.insert(key, value);
                 main_size++;
             } else if (ins.opcode == uint256(Opcode.IdxInsert)) {
-                console.log("IdxInsert NOT IMPLEMENTED");
+                // NOTE: doc is very unclear about flag == 0x08...
+                uint256 key = mem[ins.p3];
+                uint256 value = mem[ins.p2];
+                if (value == 0) // TODO: remove this stupid patch...
+                    value = 9999999;
+                console.log("IdxInsert %s -> %s", key, value);
+                idx.insert(key, value);
+                // main_size++;
             }
             /*
             CONTROL FLOW
