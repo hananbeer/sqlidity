@@ -187,7 +187,8 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'insert into im(is_del, time) values (0, 123), (1, 555)'
 #query = 'CREATE TABLE test2 (id INTEGER PRIMARY KEY, value INTEGER)'
 #query = 'select * from test'
-query = 'insert into test(id, value) values(7, 555)'
+#query = 'insert into test2(notid, value) values(7, 555)'
+query = 'insert into test3(onlyvalue) values(555)'
 
 OUTPUT_BYTECODE = True
 

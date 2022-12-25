@@ -286,6 +286,10 @@ contract Sqlite {
             CONSTANTS
             */
             else if (ins.opcode == uint256(Opcode.Integer)) {
+                // if (ins.p2 == 1) {
+                //     ins.p2 = 2; // STUPID PATCH
+                //     console.log("(!!! INTEGER PATCHED !!!)");
+                // }
                 console.log("Integer %s <- %s", ins.p2, ins.p1);
                 mem[ins.p2] = ins.p1;
             } else if (ins.opcode == uint256(Opcode.Real)) {
@@ -463,6 +467,7 @@ contract Sqlite {
                 console.log("MakeRecord (emulated): %s-%s", ins.p1, ins.p1 + ins.p2 - 1);
                 for (uint256 i = 0; i < ins.p2; i++) {
                     console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
+                    mem[ins.p3 + i] = mem[ins.p1 + i];
                 }
             } else if (ins.opcode == uint256(Opcode.Insert)) {
                 /*
