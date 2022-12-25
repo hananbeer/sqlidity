@@ -1,188 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "./Opcodes.sol";
 import "./RedBlackBinaryTree.sol";
 
 import "forge-std/console.sol";
-
-enum Opcode {
-  Savepoint, // 0,
-  AutoCommit, // 1,
-  Transaction, // 2,
-  SorterNext, // 3, /* jump                                       */
-  Prev, // 4, /* jump                                       */
-  Next, // 5, /* jump                                       */
-  Checkpoint, // 6,
-  JournalMode, // 7,
-  Vacuum, // 8,
-  VFilter, // 9, /* jump, synopsis: iplan=r[P3] zplan='P4'     */
-  VUpdate, // 10, /* synopsis: data=r[P3@P2]                    */
-  Goto, // 11, /* jump                                       */
-  Gosub, // 12, /* jump                                       */
-  InitCoroutine, // 13, /* jump                                       */
-  Yield, // 14, /* jump                                       */
-  MustBeInt, // 15, /* jump                                       */
-  Jump, // 16, /* jump                                       */
-  Once, // 17, /* jump                                       */
-  If, // 18, /* jump                                       */
-  Not, // 19, /* same as TK_NOT, synopsis: r[P2]= !r[P1]    */
-  IfNot, // 20, /* jump                                       */
-  IfNullRow, // 21, /* jump, synopsis: if P1.nullRow then r[P3]=NULL, goto P2, */
-  SeekLT, // 22, /* jump, synopsis: key=r[P3@P4]               */
-  SeekLE, // 23, /* jump, synopsis: key=r[P3@P4]               */
-  SeekGE, // 24, /* jump, synopsis: key=r[P3@P4]               */
-  SeekGT, // 25, /* jump, synopsis: key=r[P3@P4]               */
-  IfNotOpen, // 26, /* jump, synopsis: if( !csr[P1] ) goto P2,     */
-  IfNoHope, // 27, /* jump, synopsis: key=r[P3@P4]               */
-  NoConflict, // 28, /* jump, synopsis: key=r[P3@P4]               */
-  NotFound, // 29, /* jump, synopsis: key=r[P3@P4]               */
-  Found, // 30, /* jump, synopsis: key=r[P3@P4]               */
-  SeekRowid, // 31, /* jump, synopsis: intkey=r[P3]               */
-  NotExists, // 32, /* jump, synopsis: intkey=r[P3]               */
-  Last, // 33, /* jump                                       */
-  IfSmaller, // 34, /* jump                                       */
-  SorterSort, // 35, /* jump                                       */
-  Sort, // 36, /* jump                                       */
-  Rewind, // 37, /* jump                                       */
-  IdxLE, // 38, /* jump, synopsis: key=r[P3@P4]               */
-  IdxGT, // 39, /* jump, synopsis: key=r[P3@P4]               */
-  IdxLT, // 40, /* jump, synopsis: key=r[P3@P4]               */
-  IdxGE, // 41, /* jump, synopsis: key=r[P3@P4]               */
-  RowSetRead, // 42, /* jump, synopsis: r[P3]=rowset(P1)           */
-  Or, // 43, /* same as TK_OR, synopsis: r[P3]=(r[P1] || r[P2]) */
-  And, // 44, /* same as TK_AND, synopsis: r[P3]=(r[P1] && r[P2]) */
-  RowSetTest, // 45, /* jump, synopsis: if r[P3] in rowset(P1) goto P2, */
-  Program, // 46, /* jump                                       */
-  FkIfZero, // 47, /* jump, synopsis: if fkctr[P1]==0, goto P2,    */
-  IfPos, // 48, /* jump, synopsis: if r[P1]>0, then r[P1]-=P3, goto P2, */
-  IfNotZero, // 49, /* jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2, */
-  IsNull, // 50, /* jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2, */
-  NotNull, // 51, /* jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2, */
-  Ne, // 52, /* jump, same as TK_NE, synopsis: IF r[P3]!=r[P1] */
-  Eq, // 53, /* jump, same as TK_EQ, synopsis: IF r[P3]==r[P1] */
-  Gt, // 54, /* jump, same as TK_GT, synopsis: IF r[P3]>r[P1] */
-  Le, // 55, /* jump, same as TK_LE, synopsis: IF r[P3]<=r[P1] */
-  Lt, // 56, /* jump, same as TK_LT, synopsis: IF r[P3]<r[P1] */
-  Ge, // 57, /* jump, same as TK_GE, synopsis: IF r[P3]>=r[P1] */
-  ElseNotEq, // 58, /* jump, same as TK_ESCAPE                    */
-  DecrJumpZero, // 59, /* jump, synopsis: if (--r[P1])==0, goto P2,    */
-  IncrVacuum, // 60, /* jump                                       */
-  VNext, // 61, /* jump                                       */
-  Init, // 62, /* jump, synopsis: Start at P2,                */
-  PureFunc, // 63, /* synopsis: r[P3]=func(r[P2@NP])             */
-  Function, // 64, /* synopsis: r[P3]=func(r[P2@NP])             */
-  Return, // 65,
-  EndCoroutine, // 66,
-  HaltIfNull, // 67, /* synopsis: if r[P3]=null halt               */
-  Halt, // 68,
-  Integer, // 69, /* synopsis: r[P2]=P1,                         */
-  Int64, // 70, /* synopsis: r[P2]=P4,                         */
-  String, // 71, /* synopsis: r[P2]='P4' (len=P1)              */
-  Null, // 72, /* synopsis: r[P2..P3]=NULL                   */
-  SoftNull, // 73, /* synopsis: r[P1]=NULL                       */
-  Blob, // 74, /* synopsis: r[P2]=P4, (len=P1)                */
-  Variable, // 75, /* synopsis: r[P2]=parameter(P1,P4)           */
-  Move, // 76, /* synopsis: r[P2@P3]=r[P1@P3]                */
-  Copy, // 77, /* synopsis: r[P2@P3+1]=r[P1@P3+1]            */
-  SCopy, // 78, /* synopsis: r[P2]=r[P1]                      */
-  IntCopy, // 79, /* synopsis: r[P2]=r[P1]                      */
-  ResultRow, // 80, /* synopsis: output=r[P1@P2]                  */
-  CollSeq, // 81,
-  AddImm, // 82, /* synopsis: r[P1]=r[P1]+P2,                   */
-  RealAffinity, // 83,
-  Cast, // 84, /* synopsis: affinity(r[P1])                  */
-  Permutation, // 85,
-  Compare, // 86, /* synopsis: r[P1@P3] <-> r[P2@P3]            */
-  IsTrue, // 87, /* synopsis: r[P2] = coalesce(r[P1]==TRUE,P3) ^ P4, */
-  Offset, // 88, /* synopsis: r[P3] = sqlite_offset(P1)        */
-  Column, // 89, /* synopsis: r[P3]=PX                         */
-  Affinity, // 90, /* synopsis: affinity(r[P1@P2])               */
-  MakeRecord, // 91, /* synopsis: r[P3]=mkrec(r[P1@P2])            */
-  Count, // 92, /* synopsis: r[P2]=count()                    */
-  ReadCookie, // 93,
-  SetCookie, // 94,
-  ReopenIdx, // 95, /* synopsis: root=P2, iDb=P3,                   */
-  OpenRead, // 96, /* synopsis: root=P2, iDb=P3,                   */
-  OpenWrite, // 97, /* synopsis: root=P2, iDb=P3,                   */
-  OpenDup, // 98,
-  OpenAutoindex, // 99, /* synopsis: nColumn=P2,                       */
-  OpenEphemeral, // 100, /* synopsis: nColumn=P2,                       */
-  BitAnd, // 101, /* same as TK_BITAND, synopsis: r[P3]=r[P1]&r[P2] */
-  BitOr, // 102, /* same as TK_BITOR, synopsis: r[P3]=r[P1]|r[P2] */
-  ShiftLeft, // 103, /* same as TK_LSHIFT, synopsis: r[P3]=r[P2]<<r[P1] */
-  ShiftRight, // 104, /* same as TK_RSHIFT, synopsis: r[P3]=r[P2]>>r[P1] */
-  Add, // 105, /* same as TK_PLUS, synopsis: r[P3]=r[P1]+r[P2] */
-  Subtract, // 106, /* same as TK_MINUS, synopsis: r[P3]=r[P2]-r[P1] */
-  Multiply, // 107, /* same as TK_STAR, synopsis: r[P3]=r[P1]*r[P2] */
-  Divide, // 108, /* same as TK_SLASH, synopsis: r[P3]=r[P2]/r[P1] */
-  Remainder, // 109, /* same as TK_REM, synopsis: r[P3]=r[P2]%r[P1] */
-  Concat, // 110, /* same as TK_CONCAT, synopsis: r[P3]=r[P2]+r[P1] */
-  SorterOpen, // 111,
-  BitNot, // 112, /* same as TK_BITNOT, synopsis: r[P2]= ~r[P1] */
-  SequenceTest, // 113, /* synopsis: if( cursor[P1].ctr++ ) pc = P2,   */
-  OpenPseudo, // 114, /* synopsis: P3, columns in r[P2]              */
-  String8, // 115, /* same as TK_STRING, synopsis: r[P2]='P4'    */
-  Close, // 116,
-  ColumnsUsed, // 117,
-  SeekHit, // 118, /* synopsis: seekHit=P2,                       */
-  Sequence, // 119, /* synopsis: r[P2]=cursor[P1].ctr++           */
-  NewRowid, // 120, /* synopsis: r[P2]=rowid                      */
-  Insert, // 121, /* synopsis: intkey=r[P3] data=r[P2]          */
-  Delete, // 122,
-  ResetCount, // 123,
-  SorterCompare, // 124, /* synopsis: if key(P1)!=trim(r[P3],P4) goto P2, */
-  SorterData, // 125, /* synopsis: r[P2]=data                       */
-  RowData, // 126, /* synopsis: r[P2]=data                       */
-  Rowid, // 127, /* synopsis: r[P2]=rowid                      */
-  NullRow, // 128,
-  SeekEnd, // 129,
-  IdxInsert, // 130, /* synopsis: key=r[P2]                        */
-  SorterInsert, // 131, /* synopsis: key=r[P2]                        */
-  IdxDelete, // 132, /* synopsis: key=r[P2@P3]                     */
-  DeferredSeek, // 133, /* synopsis: Move P3, to P1.rowid if needed    */
-  IdxRowid, // 134, /* synopsis: r[P2]=rowid                      */
-  FinishSeek, // 135,
-  Destroy, // 136,
-  Clear, // 137,
-  ResetSorter, // 138,
-  CreateBtree, // 139, /* synopsis: r[P2]=root iDb=P1, flags=P3,       */
-  SqlExec, // 140,
-  ParseSchema, // 141,
-  LoadAnalysis, // 142,
-  DropTable, // 143,
-  DropIndex, // 144,
-  DropTrigger, // 145,
-  IntegrityCk, // 146,
-  RowSetAdd, // 147, /* synopsis: rowset(P1)=r[P2]                 */
-  Param, // 148,
-  FkCounter, // 149, /* synopsis: fkctr[P1]+=P2,                    */
-  Real, // 150, /* same as TK_FLOAT, synopsis: r[P2]=P4,       */
-  MemMax, // 151, /* synopsis: r[P1]=max(r[P1],r[P2])           */
-  OffsetLimit, // 152, /* synopsis: if r[P1]>0, then r[P2]=r[P1]+max(0,r[P3]) else r[P2]=(-1) */
-  AggInverse, // 153, /* synopsis: accum=r[P3] inverse(r[P2@P5])    */
-  AggStep, // 154, /* synopsis: accum=r[P3] step(r[P2@P5])       */
-  AggStep1, // 155, /* synopsis: accum=r[P3] step(r[P2@P5])       */
-  AggValue, // 156, /* synopsis: r[P3]=value N=P2,                 */
-  AggFinal, // 157, /* synopsis: accum=r[P1] N=P2,                 */
-  Expire, // 158,
-  CursorLock, // 159,
-  CursorUnlock, // 160,
-  TableLock, // 161, /* synopsis: iDb=P1, root=P2, write=P3,          */
-  VBegin, // 162,
-  VCreate, // 163,
-  VDestroy, // 164,
-  VOpen, // 165,
-  VColumn, // 166, /* synopsis: r[P3]=vcolumn(P2)                */
-  VRename, // 167,
-  Pagecount, // 168,
-  MaxPgcnt, // 169,
-  Trace, // 170,
-  CursorHint, // 171,
-  ReleaseReg, // 172, /* synopsis: release r[P1@P2] mask P3,         */
-  Noop, // 173,
-  Explain, // 174,
-  Abortable // 175,
-}
 
 contract Sqlite {
     using RedBlackBinaryTree for RedBlackBinaryTree.Tree;
@@ -208,6 +30,12 @@ contract Sqlite {
         main.insert(1, 5);
         main.insert(2, 25);
         main.insert(3, 125);
+
+        uint256 size;
+        assembly {
+            size := extcodesize(address())
+        }
+        console.log("CODEsize: %s", size);
     }
 
     function bytes32ToLiteralString(bytes32 data) 
@@ -387,8 +215,11 @@ contract Sqlite {
                     pc = (ins.p2 - 1) * INS_SIZE;
                 }
             } else if (ins.opcode == uint256(Opcode.NotNull)) {
+                /*
+                Jump to P2 if the value in register P1 is not NULL.
+                */
                 // TODO: impl. NULL as 0x80..00?
-                if (mem[ins.p3] != 0) {
+                if (mem[ins.p1] != 0) {
                     pc = (ins.p2 - 1) * INS_SIZE;
                     console.log("NotNull (taken)");
                 } else {
@@ -409,9 +240,30 @@ contract Sqlite {
                 uint256 index = mem[ins.p3];
                 console.log("NotExists; index: %s, jump: %s", index, ins.p2);
                 if (main.keyExists(index)) {
-                    console.log("key exists.");
+                    console.log("  \\--> key exists.");
                 } else {
-                    console.log("key DOES NOT exist.");
+                    console.log("  \\--> key DOES NOT exist.");
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                }
+            } else if (ins.opcode == uint256(Opcode.NoConflict)) {
+                /*
+                If P4==0 then register P3 holds a blob constructed by MakeRecord. If P4>0 then register P3 is the first of P4 registers that form an unpacked record.
+                Cursor P1 is on an index btree. If the record identified by P3 and P4 contains any NULL value, jump immediately to P2. If all terms of the record are not-NULL then a check is done to determine if any row in the P1 index btree has a matching key prefix. If there are no matches, jump immediately to P2. If there is a match, fall through and leave the P1 cursor pointing to the matching row.
+
+                This opcode is similar to NotFound with the exceptions that the branch is always taken if any part of the search key input is NULL.
+
+                This operation leaves the cursor in a state where it cannot be advanced in either direction. In other words, the Next and Prev opcodes do not work after this operation.
+
+                See also: NotFound, Found, NotExists
+                */
+                // TODO: check all P4 arguments (or blob if P4 == 0)
+                uint256 index = mem[ins.p3];
+                console.log("NoConflict; cursor: %s, p3: %s, p4: %s", ins.p1, ins.p3, ins.p4);
+                if (main.keyExists(index)) {
+                    console.log("  \\--> CONFLICT!");
+                } else {
+                    // if there is no conflict, jump to p2
+                    console.log("  \\--> no conflict.");
                     pc = (ins.p2 - 1) * INS_SIZE;
                 }
             }
@@ -437,7 +289,21 @@ contract Sqlite {
             else if (ins.opcode == uint256(Opcode.Copy)) {
                 revert("Copy unimplemented");
             } else if (ins.opcode == uint256(Opcode.SCopy)) {
-                revert("SCopy unimplemented");
+                /*
+                Make a shallow copy of register P1 into register P2.
+                This instruction makes a shallow copy of the value. If the value is a string or blob, then the copy is only a pointer to the original and hence if the original changes so will the copy. Worse, if the original is deallocated, the copy becomes invalid. Thus the program must guarantee that the original will not change during the lifetime of the copy. Use Copy to make a complete copy.
+                */
+                // TODO: check if extra work needed to copy strings and blobs too
+                mem[ins.p2] = mem[ins.p1];
+                console.log("SCopy %s <- %s", ins.p2, mem[ins.p1]);
+            } else if (ins.opcode == uint256(Opcode.IntCopy)) {
+                /*
+                Transfer the integer value held in register P1 into register P2.
+                This is an optimized version of SCopy that works only for integer values.
+                */
+                // TODO: validate int?
+                mem[ins.p2] = mem[ins.p1];
+                console.log("MakeInt %s <- %s", ins.p2, mem[ins.p1]);
             } else if (ins.opcode == uint256(Opcode.NewRowid)) {
                 mem[ins.p2] = main_size + 1;
                 // mem[ins.p3] = main_size + 1; // "The P3 register is updated with the ' generated record number."
@@ -522,8 +388,28 @@ contract Sqlite {
                 }
                 rowid++;
             } else if (ins.opcode == uint256(Opcode.Halt)) {
-                console.log("Halt.");
-                break;
+                /*
+                Exit immediately. All open cursors, etc are closed automatically.
+                P1 is the result code returned by sqlite3_exec(), sqlite3_reset(), or sqlite3_finalize(). For a normal halt, this should be SQLITE_OK (0). For errors, it can be some other value. If P1!=0 then P2 will determine whether or not to rollback the current transaction. Do not rollback if P2==OE_Fail. Do the rollback if P2==OE_Rollback. If P2==OE_Abort, then back out all changes that have occurred during this execution of the VDBE, but do not rollback the transaction.
+
+                If P4 is not null then it is an error message string.
+
+                P5 is a value between 0 and 4, inclusive, that modifies the P4 string.
+
+                0: (no change) 1: NOT NULL contraint failed: P4 2: UNIQUE constraint failed: P4 3: CHECK constraint failed: P4 4: FOREIGN KEY constraint failed: P4
+
+                If P5 is not zero and P4 is NULL, then everything after the ":" is omitted.
+
+                There is an implied "Halt 0 0 0" instruction inserted at the very end of every program. So a jump past the last instruction of the program is the same as executing Halt.
+                */
+                if (ins.p1 == 0) {
+                    console.log("Halt. (success)");
+                    break;
+                } else {
+                    // TODO: don't always revert, check ins.p2
+                    console.log("Halt. (error: %s / %s)", ins.p1, ins.p2);
+                    revert("Halt caused rollback");
+                }
             } else if (ins.opcode == uint256(Opcode.HaltIfNull)) {
                 revert("HaltIfNull unimplemented");
             }
@@ -546,6 +432,8 @@ contract Sqlite {
                 // TODO: instead of pc need to extract p2-th element from table p1 (or null)
                 mem[ins.p3] = main.key(rowid);
                 console.log("Column %s -> %s", rowid, mem[ins.p3]);
+            } else if (ins.opcode == uint256(Opcode.Affinity)) {
+                console.log("Affinity (ignored: %s)", ins.p4);
             } else if (ins.opcode == uint256(Opcode.ResultRow)) {
                 console.log("ResultRow output: (%s columns)", ins.p2);
                 for (uint256 i = 0; i < ins.p2; i++) {

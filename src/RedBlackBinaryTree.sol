@@ -1,3 +1,10 @@
+////
+// TODO: change indexing on key instead value and accept array[] values
+// (alternatively use key = value for integer auto increments?)
+////
+
+
+
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
