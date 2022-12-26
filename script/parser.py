@@ -190,8 +190,10 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'insert into test2(notid, value) values(7, 555)'
 #query = 'insert into test3(onlyvalue) values(555)'
 #query = 'CREATE TABLE twokeys2 (id INTEGER PRIMARY KEY, email CHAR(32) UNIQUE, name CHAR(32))'
-query = 'insert into three(id, value, meta) values(777, 777, 777)'
+#query = 'insert into three(id, value, meta) values(777, 777, 777)'
 #query = 'select * from three'
+#query = 'insert into four(id, imd, value, meta) values(777, 222, 333, 444)'
+query = 'select * from four'
 
 OUTPUT_BYTECODE = True
 
