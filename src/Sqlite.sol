@@ -9,7 +9,7 @@ import "./BokkyPooBahsRedBlackTreeLibrary.sol";
 
 import "forge-std/console.sol";
 
-bool constant DEBUG = true;
+bool constant DEBUG = false;
 bool constant PURGE_STORAGE_ON_DELETE = true;
 
 contract Sqlite {
@@ -612,9 +612,9 @@ contract Sqlite {
             } else if (ins.opcode == uint256(Opcode.Affinity)) {
                 if (DEBUG) console.log("Affinity (ignored: %s)", ins.p4);
             } else if (ins.opcode == uint256(Opcode.ResultRow)) {
-                if (DEBUG) console.log("ResultRow output: (%s columns)", ins.p2);
+                console.log("ResultRow output: (%s columns)", ins.p2);
                 for (uint256 i = 0; i < ins.p2; i++) {
-                    if (DEBUG) console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
+                    console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
                 }
                 // TODO: emit row as log?
             } else if (ins.opcode == uint256(Opcode.Rewind)) {
