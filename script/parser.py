@@ -190,7 +190,8 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'insert into test2(notid, value) values(7, 555)'
 #query = 'insert into test3(onlyvalue) values(555)'
 #query = 'CREATE TABLE twokeys2 (id INTEGER PRIMARY KEY, email CHAR(32) UNIQUE, name CHAR(32))'
-query = 'insert into three(id, value, meta) values(555, 1001, 88)'
+query = 'insert into three(id, value, meta) values(777, 777, 777)'
+#query = 'select * from three'
 
 OUTPUT_BYTECODE = True
 
@@ -225,4 +226,4 @@ for row in rows:
   print('[%02x] %02x %s (%x, %x, %x, %x, %x)' % (pc, opcode, op_name, *params), file=sys.stderr)
 
 if output:
-  print('// %s;\n\t\t\tsqlite.execute(hex"%s");' % (query, output))
+  print('\t\t\tconsole.log(">>> %s");\n\t\t\tsqlite.execute(hex"%s");' % (query, output))

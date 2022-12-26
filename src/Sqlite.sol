@@ -1,13 +1,16 @@
+// this may help:
+// https://sqlite.org/fileformat2.html
+
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
 import "./Opcodes.sol";
-import "./RedBlackBinaryTree.sol";
+import "./BokkyPooBahsRedBlackTreeLibrary.sol";
 
 import "forge-std/console.sol";
 
 contract Sqlite {
-    using RedBlackBinaryTree for RedBlackBinaryTree.Tree;
+    using BokkyPooBahsRedBlackTreeLibrary for Tree;
 
     struct Instruction {
         uint256 opcode;
@@ -20,18 +23,46 @@ contract Sqlite {
 
     uint256 immutable INS_SIZE = 32 * 6;
     
-    // mapping (uint256 => RedBlackBinaryTree.Tree) public trees;
-    RedBlackBinaryTree.Tree[] public tables;
+    // mapping (uint256 => Tree) public trees;
+    mapping (uint256 => Tree) public tables;
+    // Tree[] public tables;
+    uint256 public countTables;
 
     constructor() {
-        RedBlackBinaryTree.Tree table = new RedBlackBinaryTree.Tree();
-        tables.push(table)
-        table.insert(4, 99);
-        table.insert(5, 999);
-        table.insert(6, 1001);
-        table.insert(1, 5);
-        table.insert(2, 25);
-        table.insert(3, 125);
+        Tree storage table = _makeTable();
+
+        // table.insert(1, 5);
+        // table.insert(2, 25);
+        // table.insert(3, 125);
+        // table.insert(4, 99);
+        table.insert(99, 99);
+        table.insert(10001, 10001);
+
+        // Tree storage index = _makeTable();
+        // index.insert(5, 1);
+        // index.insert(25, 2);
+        // index.insert(125, 3);
+        // index.insert(99, 4);
+        // index.insert(999, 5);
+        // index.insert(1001, 6);
+    }
+
+    function _makeTable() internal returns (Tree storage table) {
+        table = tables[countTables];
+        countTables++;
+    }
+
+    function _makeRow(uint256[] memory items, uint256 start, uint256 count) internal returns (uint256 sslot) {
+        // hash is probably a bad idea because a single column can be mutated
+        // TODO: need to be careful or change from hash, maybe nonce
+        assembly {
+            sslot := keccak256(add(add(items, 0x20), mul(start, 0x20)), mul(count, 0x20))
+        }
+        for (uint256 i = start; i < count; i++) {
+            assembly {
+                sstore(add(sslot, i), add(add(items, 0x20), mul(i, 0x20)))
+            }
+        }
     }
 
     function bytes32ToLiteralString(bytes32 data) 
@@ -64,16 +95,14 @@ contract Sqlite {
     }
 
     function execute(bytes calldata bytecode) public payable {
-        uint256[100] memory mem;
-        
         // rowid should start at 1...
         uint256 rowid = 0;
-
-        // cache table size
-        uint256 main_size = tables[0].size;
+        uint256 record_size = 0;
 
         Instruction memory ins = abi.decode(bytecode[0:INS_SIZE], (Instruction));
 
+        uint256[] memory mem = new uint256[](100);
+        
         // always start with Init opcode
         require(ins.opcode == uint256(Opcode.Init), "must start with Init opcode");
         uint256 init_pc = ins.p2 * INS_SIZE;
@@ -235,8 +264,8 @@ contract Sqlite {
                 */
                 // TODO: is it p1 or mem[p1] ???
                 uint256 index = mem[ins.p3];
-                console.log("NotExists; index: %s, jump: %s", index, ins.p2);
-                if (tables[0].keyExists(index)) {
+                console.log("NotExists; tbl: %s, index: %s, jump: %s", ins.p1, index, ins.p2);
+                if (tables[ins.p1].exists(index)) {
                     console.log("  \\--> key exists.");
                 } else {
                     console.log("  \\--> key DOES NOT exist.");
@@ -255,8 +284,16 @@ contract Sqlite {
                 */
                 // TODO: check all P4 arguments (or blob if P4 == 0)
                 uint256 index = mem[ins.p3];
-                console.log("NoConflict; cursor: %s, p3: %s, p4: %s", ins.p1, ins.p3, ins.p4);
-                if (tables[0].keyExists(index)) {
+                console.log("NoConflict; tbl: %s, p3: %s, p4: %s", ins.p1, ins.p3, ins.p4);
+                bool conflicted = false;
+                // TODO: multiple columns conflict (count should be stored in MakeRecord -> _makeRow -> sslot MSB?)
+                for (uint256 i = 0; i < 1/*ins.p2*/; i++) {
+                    if (tables[ins.p1 + i].exists(index)) {
+                        conflicted = true;
+                        break;
+                    }
+                }
+                if (conflicted) {
                     console.log("  \\--> CONFLICT!");
                 } else {
                     // if there is no conflict, jump to p2
@@ -302,8 +339,8 @@ contract Sqlite {
                 mem[ins.p2] = mem[ins.p1];
                 console.log("MakeInt %s <- %s", ins.p2, mem[ins.p1]);
             } else if (ins.opcode == uint256(Opcode.NewRowid)) {
-                mem[ins.p2] = main_size + 1;
-                // mem[ins.p3] = main_size + 1; // "The P3 register is updated with the ' generated record number."
+                mem[ins.p2] = tables[ins.p1].size + 1;
+                // mem[ins.p3] = mem[ins.p2]; // "The P3 register is updated with the ' generated record number."
                 console.log("NewRowid (emulated): %s", mem[ins.p2]);
             } else if (ins.opcode == uint256(Opcode.Blob)) {
                 /*
@@ -327,11 +364,19 @@ contract Sqlite {
 
                 * If SQLITE_ENABLE_NULL_TRIM is omitted, then P5 has the value OPFLAG_NOCHNG_MAGIC if the MakeRecord opcode is allowed to accept no-change records with serial_type 10. This value is only used inside an assert() and does not affect the end result.
                 */
+                // NOTE: it does not seem to say so in the documentation, but the output is written to p3.
                 console.log("MakeRecord (emulated): %s-%s", ins.p1, ins.p1 + ins.p2 - 1);
                 for (uint256 i = 0; i < ins.p2; i++) {
                     console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
-                    mem[ins.p3 + i] = mem[ins.p1 + i];
+                    // mem[ins.p3 + i] = mem[ins.p1 + i];
                 }
+
+                // cache record_size for Insert
+                record_size = ins.p2;
+                uint256 sslot = _makeRow(mem, ins.p1, record_size);
+                console.log("  (sslot: %s)", sslot);
+                mem[ins.p3] = sslot;
+
             } else if (ins.opcode == uint256(Opcode.Insert)) {
                 /*
                 Write an entry into the table of cursor P1. A new entry is created if it doesn't already exist or the data for an existing entry is overwritten. The data is the value MEM_Blob stored in register number P2. The key is stored in register P3. The key must be a MEM_Int.
@@ -350,20 +395,26 @@ contract Sqlite {
                 // NOTE: doc is very unclear about flag == 0x08...
                 uint256 key = mem[ins.p3];
                 uint256 value = mem[ins.p2];
-                if (value == 0) // TODO: remove this stupid patch...
-                    value = 9999999;
-                console.log("Insert %s -> %s", key, value);
-                tables[0].insert(key, value);
-                main_size++;
+                
+                // TODO: remove this stupid patch...
+                // if (value == 0)
+                //     value = tables[ins.p1].size + 1;
+
+                console.log("Insert [%s] %s -> %s", ins.p1, key, value);
+                tables[ins.p1].insert(key, value);
+                record_size = 0;
             } else if (ins.opcode == uint256(Opcode.IdxInsert)) {
                 // NOTE: doc is very unclear about flag == 0x08...
                 uint256 key = mem[ins.p3];
                 uint256 value = mem[ins.p2];
-                if (value == 0) // TODO: remove this stupid patch...
-                    value = 9999999;
-                console.log("IdxInsert %s -> %s", key, value);
-                idx.insert(key, value);
-                // main_size++;
+
+                // TODO: remove this stupid patch...
+                // if (value == 0)
+                //     value = tables[ins.p1].size + 1;
+
+                console.log("IdxInsert [%s] %s -> %s", ins.p1, key, value);
+                tables[ins.p1].insert(key, value);
+                record_size = 0;
             }
             /*
             CONTROL FLOW
@@ -373,26 +424,26 @@ contract Sqlite {
                 pc = (ins.p2 - 1) * INS_SIZE;
             } else if (ins.opcode == uint256(Opcode.Prev)) {
                 // jump if has more rows
+                rowid = tables[ins.p1].prev(rowid);
                 if (rowid > 0) {
                     console.log("Prev %s", rowid);
                     pc = (ins.p2 - 1) * INS_SIZE;
                 } else {
                     console.log("Prev (end.)");
                 }
-                rowid--;
             } else if (ins.opcode == uint256(Opcode.Next)) {
                 /*
                 Advance cursor P1 so that it points to the next key/data pair in its table or index. If there are no more key/value pairs then fall through to the following instruction. But if the cursor advance was successful, jump immediately to P2.
                 */
                 // simulate items only once...
                 // jump if has more rows
-                if (rowid <= main_size) {
+                rowid = tables[ins.p1].next(rowid);
+                if (rowid > 0) {
                     console.log("Next %s", rowid);
                     pc = (ins.p2 - 1) * INS_SIZE;
                 } else {
                     console.log("Next (end.)");
                 }
-                rowid++;
             } else if (ins.opcode == uint256(Opcode.Halt)) {
                 /*
                 Exit immediately. All open cursors, etc are closed automatically.
@@ -436,8 +487,8 @@ contract Sqlite {
                 If the OPFLAG_LENGTHARG and OPFLAG_TYPEOFARG bits are set on P5 then the result is guaranteed to only be used as the argument of a length() or typeof() function, respectively. The loading of large blobs can be skipped for length() and all content loading can be skipped for typeof().
                 */
                 // TODO: instead of pc need to extract p2-th element from table p1 (or null)
-                mem[ins.p3] = tables[0].key(rowid);
-                console.log("Column %s -> %s", rowid, mem[ins.p3]);
+                mem[ins.p3] = tables[ins.p2].nodes[rowid].sslot;
+                console.log("Column %s:%s => %s", rowid, ins.p2, mem[ins.p3]);
             } else if (ins.opcode == uint256(Opcode.Affinity)) {
                 console.log("Affinity (ignored: %s)", ins.p4);
             } else if (ins.opcode == uint256(Opcode.ResultRow)) {
@@ -452,14 +503,15 @@ contract Sqlite {
                 This opcode leaves the cursor configured to move in forward order, from the beginning toward the end. In other words, the cursor is configured to use Next, not Prev.
                 */
                 // TODO: jump to p2 if needed
-                // rowid should start at 1.
-                rowid = 1;
-                console.log("Rewind 1 (partially implemented)");
+                // TODO: should be first() not 1...
+                rowid = tables[ins.p1].first();
+                console.log("Rewind %s (partially implemented): %s", ins.p1, rowid);
             } else if (ins.opcode == uint256(Opcode.Last)) {
                 // TODO: set rowid to the last element in the table
                 //rowid = -1;
-                rowid = tables[0].size;
-                console.log("Last %s (partially implemented)", rowid);
+                // TODO: should be last() not size...
+                rowid = tables[ins.p1].size;
+                console.log("Last %s (partially implemented): %s", ins.p1, rowid);
             } else if (ins.opcode == uint256(Opcode.Noop)) {
                 // no-op
                 console.log("No-op");
@@ -480,7 +532,39 @@ contract Sqlite {
                 revert("unimplemented opcode");
             }
         }
+
+        console.log("\n");
     }
 }
 
 
+/*
+NOTES:
+- tables without primary key will have additional column `rowid` (or oid or _rowid_) as the primary key
+- tables that specify "WITHOUT ROWID" *MUST* have a primary key
+--> it also seems that tables that have WITHOUT ROWID & primary key (must) will be the same row..
+
+- to sqlidity, in my understanding, Insert is just InsertIdx for the PRIMARY KEY.
+-- there should be no difference (?) in impl. (need to verify this claim)
+
+- I'm not sure if it's safe to just transfer opcodes since the sql query compiler actually does a lot of sanity checks on it's own...
+
+- check if it is safe to ignore OpenWrite / OpenRead and just assume a single table in db for now..? (contract = table?? I don't think it should be)
+
+I think the following distinction does not exist for sqlidity hence should only support either one of PRIMARY KEY / UNIQUE
+(also what's the point of having a NULL in a unique table.......)
+
+What Is Primary Key?
+The primary key is the minimum set of traits that distinguishes any row of a table. It cannot have NULL and duplicate values. The primary key is used to add integrity to the table.
+
+In the case of a primary key, both Duplicate and NULL values are not valid. And, it can be utilized as foreign keys for different tables.
+
+What Is a Unique Key?
+A unique Key is an individual value that is used to protect duplicate values in a column. The foremost purpose of a unique key in a table is to prevent duplicate values. However, when it comes to a unique value, the primary key also includes it. So, there is one big difference that makes a unique key different, and it is: a unique key can have a NULL value which is not supported in a primary key.
+
+-- one point that may be interesting to investigate:
+
+Index:
+    The primary key tends to generate a clustered index by default.
+    The unique key tends to generate a non-clustered index.
+*/
