@@ -192,8 +192,9 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'CREATE TABLE twokeys2 (id INTEGER PRIMARY KEY, email CHAR(32) UNIQUE, name CHAR(32))'
 #query = 'insert into three(id, value, meta) values(777, 777, 777)'
 #query = 'select * from three'
-#query = 'insert into four(id, imd, value, meta) values(777, 222, 333, 444)'
-query = 'select * from four'
+#query = 'insert into four(id, imd, value, meta) values(777, 222, 555, 444)'
+#query = 'select * from four'
+query = 'delete from four where id = 111'
 
 OUTPUT_BYTECODE = True
 

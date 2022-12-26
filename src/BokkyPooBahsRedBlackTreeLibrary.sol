@@ -76,7 +76,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
     function isEmpty(uint256 key) internal pure returns (bool) {
         return key == EMPTY;
     }
-    function getEmpty() internal pure returns (uint) {
+    function getEmpty() internal pure returns (uint256) {
         return EMPTY;
     }
     /*function getNode(Tree storage self, uint256 key) internal view returns (Node storage) {
@@ -154,13 +154,13 @@ library BokkyPooBahsRedBlackTreeLibrary {
         delete self.nodes[cursor];
     }
 
-    function treeMinimum(Tree storage self, uint256 key) private view returns (uint) {
+    function treeMinimum(Tree storage self, uint256 key) internal view returns (uint256) {
         while (self.nodes[key].left != EMPTY) {
             key = self.nodes[key].left;
         }
         return key;
     }
-    function treeMaximum(Tree storage self, uint256 key) private view returns (uint) {
+    function treeMaximum(Tree storage self, uint256 key) internal view returns (uint256) {
         while (self.nodes[key].right != EMPTY) {
             key = self.nodes[key].right;
         }

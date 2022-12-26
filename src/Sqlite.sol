@@ -10,6 +10,7 @@ import "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import "forge-std/console.sol";
 
 bool constant DEBUG = true;
+bool constant PURGE_STORAGE_ON_DELETE = true;
 
 contract Sqlite {
     using BokkyPooBahsRedBlackTreeLibrary for Tree;
@@ -21,6 +22,11 @@ contract Sqlite {
         uint256 p3;
         uint256 p4;
         uint256 p5;
+    }
+
+    struct Cursor {
+        uint256 tbl_idx;
+        uint256 ptr;
     }
 
     uint256 immutable INS_SIZE = 32 * 6;
@@ -81,6 +87,20 @@ contract Sqlite {
         }
     }
 
+    function _deleteRow(uint256 sslot) internal {
+        // hash is probably a bad idea because a single column can be mutated
+        // TODO: need to be careful or change from hash, maybe nonce
+        if (!PURGE_STORAGE_ON_DELETE)
+            return;
+
+        uint256 count = _rowSize(sslot);
+        for (uint256 i = 0; i < count; i++) {
+            assembly {
+                sstore(add(sslot, i), 0)
+            }
+        }
+    }
+
     function _rowSize(uint256 sslot) internal returns (uint256 size) {
         return (sslot >> 248);
     }
@@ -90,6 +110,17 @@ contract Sqlite {
             value := sload(sslot)
         }
         // console.log("### read: %s => %s", sslot, value);
+    }
+
+    function _debugPrintRow(uint256 sslot, uint256 count) internal returns (uint256 value) {
+        console.log("[DEBUG: %s]", sslot);
+        for (uint256 i = 0; i < count; i++) {
+            uint256 value;
+            assembly {
+                value := sload(sslot)
+            }
+            console.log("  [#%s] %s", i, value);
+        }
     }
 
     function _readRowColumn(uint256 sslot, uint256 column) internal returns (uint256 value) {
@@ -129,14 +160,13 @@ contract Sqlite {
 
     function execute(bytes calldata bytecode) public payable {
         // rowid should start at 1...
-        uint256 rowid = 0;
-        uint256 record_size = 0;
+        // uint256 rowid = 0;
         uint256[] memory mem = new uint256[](100);
 
         Instruction memory ins = abi.decode(bytecode[0:INS_SIZE], (Instruction));
 
         // TODO: expand dynamically?
-        uint256[32] memory cursors;
+        Cursor[32] memory cursors;
 
         // always start with Init opcode
         require(ins.opcode == uint256(Opcode.Init), "must start with Init opcode");
@@ -162,14 +192,13 @@ contract Sqlite {
             } else if (ins.opcode == uint256(Opcode.OpenRead)) {
                 // TODO: if P4 is int, ensure table has at least P4 columns
                 // TODO: impl. no op for now
-                cursors[ins.p1] = ins.p2;
-                if (DEBUG) console.log("OpenRead %s -> %s", ins.p2, ins.p1);
-            } else if (ins.opcode == uint256(Opcode.OpenWrite)) 
-            {
+                cursors[ins.p1] = Cursor({tbl_idx: ins.p2, ptr: 0});
+                if (DEBUG) console.log("OpenRead %s <- %s", ins.p1, ins.p2);
+            } else if (ins.opcode == uint256(Opcode.OpenWrite)) {
                 // TODO: if P4 is int, ensure table has at least P4 columns
                 // TODO: impl. no op for now
-                cursors[ins.p1] = ins.p2;
-                if (DEBUG) console.log("OpenWrite %s -> %s", ins.p2, ins.p1);
+                cursors[ins.p1] = Cursor({tbl_idx: ins.p2, ptr: 0});
+                if (DEBUG) console.log("OpenWrite %s <- %s", ins.p1, ins.p2);
             } else if (ins.opcode == uint256(Opcode.Init)) {
                 // Init is the first opcode and is processed outside the loop.
                 // if there's an Init elsewhere, or more likely a jump to 0 then revert.
@@ -313,7 +342,7 @@ contract Sqlite {
                 // TODO: is it p1 or mem[p1] ???
                 uint256 index = mem[ins.p3];
                 if (DEBUG) console.log("NotExists; tbl: %s, index: %s, jump: %s", ins.p1, index, ins.p2);
-                if (tables[cursors[ins.p1]].exists(index)) {
+                if (tables[cursors[ins.p1].tbl_idx].exists(index)) {
                     if (DEBUG) console.log("  \\--> key exists.");
                 } else {
                     if (DEBUG) console.log("  \\--> key DOES NOT exist.");
@@ -339,7 +368,7 @@ contract Sqlite {
                 // /uint256 rsize = _rowSize(sslot);
                 // TODO: multiple columns conflict (count should be stored in MakeRecord -> _makeRow -> sslot MSB?)
                 for (uint256 i = 0; i < 1/*ins.p2*/; i++) {
-                    if (tables[cursors[ins.p1 + i]].exists(index)) {
+                    if (tables[cursors[ins.p1 + i].tbl_idx].exists(index)) {
                         conflicted = true;
                         break;
                     }
@@ -393,8 +422,8 @@ contract Sqlite {
                 mem[ins.p2] = mem[ins.p1];
             } else if (ins.opcode == uint256(Opcode.NewRowid)) {
                 //* Get a new integer record number (a.k.a "rowid") used as the key to a table. The record number is not previously used as a key in the database table that cursor P1 points to. The new record number is written written to register P2.
-                if (DEBUG) console.log("NewRowid (emulated): %s", mem[ins.p2]);
-                uint256 last = tables[cursors[ins.p1]].last();
+                if (DEBUG) console.log("NewRowid: %s", mem[ins.p2]);
+                uint256 last = tables[cursors[ins.p1].tbl_idx].last();
                 mem[ins.p2] = last + 1;
                 //* If P3>0 then P3 is a register in the root frame of this VDBE that holds the largest previously generated record number. No new record numbers are allowed to be less than this value. When this value reaches its maximum, an SQLITE_FULL error is generated. The P3 register is updated with the ' generated record number. This P3 mechanism is used to help implement the AUTOINCREMENT feature.
                 //if (ins.p3 > 0)
@@ -422,15 +451,13 @@ contract Sqlite {
                 * If SQLITE_ENABLE_NULL_TRIM is omitted, then P5 has the value OPFLAG_NOCHNG_MAGIC if the MakeRecord opcode is allowed to accept no-change records with serial_type 10. This value is only used inside an assert() and does not affect the end result.
                 */
                 // NOTE: it does not seem to say so in the documentation, but the output is written to p3.
-                if (DEBUG) console.log("MakeRecord (emulated): %s-%s", ins.p1, ins.p1 + ins.p2 - 1);
+                if (DEBUG) console.log("MakeRecord: %s-%s", ins.p1, ins.p1 + ins.p2 - 1);
                 for (uint256 i = 0; i < ins.p2; i++) {
                     if (DEBUG) console.log("  %s: %s", ins.p1 + i, mem[ins.p1 + i]);
                     // mem[ins.p3 + i] = mem[ins.p1 + i];
                 }
 
-                // cache record_size for Insert
-                record_size = ins.p2;
-                uint256 sslot = _makeRow(mem, ins.p1, record_size);
+                uint256 sslot = _makeRow(mem, ins.p1, ins.p2);
                 if (DEBUG) console.log("  (sslot: %s)", sslot);
                 mem[ins.p3] = sslot;
             } else if (ins.opcode == uint256(Opcode.Insert)) {
@@ -450,27 +477,43 @@ contract Sqlite {
                 */
                 // NOTE: doc is very unclear about flag == 0x08...
                 uint256 key = mem[ins.p3];
-                uint256 value = mem[ins.p2];
+                uint256 sslot = mem[ins.p2];
                 
-                // TODO: remove this stupid patch...
-                // if (value == 0)
-                //     value = tables[cursors[ins.p1]].size + 1;
-
-                if (DEBUG) console.log("Insert [%s] %s -> %s", ins.p1, key, value);
-                tables[cursors[ins.p1]].insert(key, value);
-                record_size = 0;
+                if (DEBUG) console.log("Insert [%s] %s -> %s", ins.p1, key, sslot);
+                tables[cursors[ins.p1].tbl_idx].insert(key, sslot);
             } else if (ins.opcode == uint256(Opcode.IdxInsert)) {
                 // NOTE: doc is very unclear about flag == 0x08...
                 uint256 key = mem[ins.p3];
-                uint256 value = mem[ins.p2];
+                uint256 sslot = mem[ins.p2];
 
-                // TODO: remove this stupid patch...
-                // if (value == 0)
-                //     value = tables[cursors[ins.p1]].size + 1;
+                if (DEBUG) console.log("IdxInsert [%s] %s -> %s", ins.p1, key, sslot);
+                tables[cursors[ins.p1].tbl_idx].insert(key, sslot);
 
-                if (DEBUG) console.log("IdxInsert [%s] %s -> %s", ins.p1, key, value);
-                tables[cursors[ins.p1]].insert(key, value);
-                record_size = 0;
+                // console.log("IDX INSERT SLOT: %s", tables[cursors[ins.p1].tbl_idx].nodes[key].sslot);
+            } else if (ins.opcode == uint256(Opcode.Delete)) {
+                /*
+                Delete the record at which the P1 cursor is currently pointing.
+                */
+                uint256 key = cursors[ins.p1].ptr;
+                uint256 sslot = tables[cursors[ins.p1].tbl_idx].nodes[key].sslot;
+                
+                if (DEBUG) console.log("Delete [%s] %s -> %s", ins.p1, key, sslot);
+                tables[cursors[ins.p1].tbl_idx].remove(key);
+                // TODO: purge...
+                _deleteRow(sslot);
+            } else if (ins.opcode == uint256(Opcode.IdxDelete)) {
+                //* The content of P3 registers starting at register P2 form an unpacked index key. This opcode removes that entry from the index opened by cursor P1.
+
+                // console.log("IdxDelete %s, %s, %s", ins.p1, ins.p2, ins.p3);
+                // console.log("IdxDelete mem %s, %s, %s", mem[ins.p1], mem[ins.p2], mem[ins.p3]);
+                // revert("debug");
+
+                uint256 key = mem[ins.p2];
+
+                if (DEBUG) console.log("IdxDelete [%s] %s", ins.p1, key);
+                tables[cursors[ins.p1].tbl_idx].remove(key);
+                // TODO: should IdxDelete also purge?
+                // _deleteRow();
             }
             /*
             CONTROL FLOW
@@ -480,10 +523,11 @@ contract Sqlite {
                 pc = (ins.p2 - 1) * INS_SIZE;
             } else if (ins.opcode == uint256(Opcode.Prev)) {
                 // jump if has more rows
-                rowid = tables[cursors[ins.p1]].prev(rowid);
-                if (rowid > 0) {
-                    if (DEBUG) console.log("Prev %s", rowid);
+                uint256 ptr = tables[cursors[ins.p1].tbl_idx].prev(cursors[ins.p1].ptr);
+                if (ptr > 0) {
+                    if (DEBUG) console.log("Prev %s", ptr);
                     pc = (ins.p2 - 1) * INS_SIZE;
+                    cursors[ins.p1].ptr = ptr;
                 } else {
                     if (DEBUG) console.log("Prev (end.)");
                 }
@@ -493,10 +537,11 @@ contract Sqlite {
                 */
                 // simulate items only once...
                 // jump if has more rows
-                rowid = tables[cursors[ins.p1]].next(rowid);
-                if (rowid > 0) {
-                    if (DEBUG) console.log("Next %s", rowid);
+                uint256 ptr = tables[cursors[ins.p1].tbl_idx].next(cursors[ins.p1].ptr);
+                if (ptr > 0) {
+                    if (DEBUG) console.log("Next %s", ptr);
                     pc = (ins.p2 - 1) * INS_SIZE;
+                    cursors[ins.p1].ptr = ptr;
                 } else {
                     if (DEBUG) console.log("Next (end.)");
                 }
@@ -531,9 +576,22 @@ contract Sqlite {
             */
             else if (ins.opcode == uint256(Opcode.Close)) {
                 if (DEBUG) console.log("Close unimplemented");
+            } else if (ins.opcode == uint256(Opcode.SeekRowid)) {
+                uint256 seek_val = mem[ins.p3];
+                if (DEBUG) console.log("SeekRowid [%s] %s", ins.p1, seek_val);
+                uint256 min = tables[cursors[ins.p1].tbl_idx].treeMinimum(seek_val);
+                if (min != seek_val) {
+                    if (DEBUG) console.log("  \\--> not found!");
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                    continue;
+                }
+
+                if (DEBUG) console.log("  \\--> found.");
+                cursors[ins.p1].ptr = seek_val;
             } else if (ins.opcode == uint256(Opcode.Rowid)) {
-                if (DEBUG) console.log("Rowid %s", rowid);
-                // TODO: take rowid with respect to table entry p1
+                // TODO: is rowid always the key p1?
+                uint256 rowid = cursors[ins.p1].ptr;
+                if (DEBUG) console.log("Rowid [%s] => %s", ins.p1, rowid);
                 mem[ins.p2] = rowid;
             } else if (ins.opcode == uint256(Opcode.Column)) {
                 /*
@@ -544,9 +602,13 @@ contract Sqlite {
                 */
                 // TODO: instead of pc need to extract p2-th element from table p1 (or null)
                 // TODO: must use cursors map here...
-                uint256 sslot = tables[cursors[ins.p1]].nodes[rowid].sslot;
-                mem[ins.p3] = _readColumn(sslot + ins.p2);
-                if (DEBUG) console.log("Column %s:%s => %s", rowid, ins.p2, mem[ins.p3]);
+                uint256 ptr = cursors[ins.p1].ptr;
+                uint256 col = ins.p2;
+                uint256 sslot = tables[cursors[ins.p1].tbl_idx].nodes[ptr].sslot;
+
+                mem[ins.p3] = _readColumn(sslot + col);
+                if (DEBUG) console.log("Column [%s] %s:%s", ins.p1, ptr, col);
+                if (DEBUG) console.log("  \\--> %s (%s + %s)", mem[ins.p3], sslot, col);
             } else if (ins.opcode == uint256(Opcode.Affinity)) {
                 if (DEBUG) console.log("Affinity (ignored: %s)", ins.p4);
             } else if (ins.opcode == uint256(Opcode.ResultRow)) {
@@ -562,14 +624,23 @@ contract Sqlite {
                 */
                 // TODO: jump to p2 if needed
                 // TODO: should be first() not 1...
-                rowid = tables[cursors[ins.p1]].first();
-                if (DEBUG) console.log("Rewind %s (partially implemented): %s", ins.p1, rowid);
+
+                if (tables[cursors[ins.p1].tbl_idx].size == 0) {
+                    if (DEBUG) console.log("Rewind [%s] EMPTY TABLE", ins.p1);
+                    pc = (ins.p2 - 1) * INS_SIZE;
+                    continue;
+                }
+
+                uint256 ptr = tables[cursors[ins.p1].tbl_idx].first();
+                cursors[ins.p1].ptr = ptr;
+                if (DEBUG) console.log("Rewind [%s] %s", ins.p1, ptr);
             } else if (ins.opcode == uint256(Opcode.Last)) {
                 // TODO: set rowid to the last element in the table
                 //rowid = -1;
                 // TODO: should be last() not size...
-                rowid = tables[cursors[ins.p1]].size;
-                if (DEBUG) console.log("Last %s (partially implemented): %s", ins.p1, rowid);
+                uint256 ptr = tables[cursors[ins.p1].tbl_idx].last();
+                cursors[ins.p1].ptr = ptr;
+                if (DEBUG) console.log("Last %s (partially implemented): %s", ins.p1, ptr);
             } else if (ins.opcode == uint256(Opcode.Noop)) {
                 // no-op
                 if (DEBUG) console.log("No-op");
