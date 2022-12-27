@@ -67,20 +67,9 @@ library SqliteExecutor {
         e.cursors[e.p1].ptr = val;
     }
 
-    function _op_table(ExecEngine memory e, Tree storage table) internal view {
-        if (table.size == 0) {
-            if (DEBUG) console.log("Rewind [%s] EMPTY TABLE", e.p1);
-            e.pc = e.p2 - 1;
-            return;
-        }
-
-        uint256 first = table.first();
-        // e.cursors() abst: 342761 <-- net bad...
-        // direct e.cursors: 342580
-        // e.ptr(): 342580 <-- same! I'd say net good since abstraction gud
-        e.ptr(first);
-        if (DEBUG) console.log("Rewind [%s] %s", e.p1, first);
-    }
+    // function _op_table(ExecEngine memory e, Tree storage table) internal view {
+    //     // TODO: implement wrapper
+    // }
 }
 
 

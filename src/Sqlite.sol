@@ -16,9 +16,7 @@ contract Sqlite {
     using SqliteExecutor for ExecEngine;
     using BokkyPooBahsRedBlackTreeLibrary for Tree;
 
-    // mapping (uint256 => Tree) public trees;
     mapping (uint256 => Tree) public tables;
-    // Tree[] public tables;
     uint256 public countTables;
 
     // event ResultRow1(uint256 val1);
@@ -139,9 +137,12 @@ contract Sqlite {
         if (e.pc == 0)
             e.pc = 1;
 
-        uint256 count = 0;
+        // for debugging
+        // uint256 count = 0;
         uint256 opcodes_length = bytecode.length / INS_SIZE;
         while (e.pc < opcodes_length) {
+            // for debugging
+            //require(count++ < 50, "runtime limit");
             require((e.pc + 1) <= opcodes_length, "unexpected bytecode end");
 
             // ins = abi.decode(bytecode[e.pc * INS_SIZE:(e.pc + 1) * INS_SIZE], (Instruction));
@@ -159,21 +160,13 @@ contract Sqlite {
                 if (DEBUG) console.log("Transaction started (ignored)");
             } else if (e.opcode == uint256(Opcode.OpenRead)) {
                 // TODO: if P4 is int, ensure table has at least P4 columns
-                // TODO: impl. no op for now
                 e.cursors[e.p1] = Cursor({tbl: e.p2, ptr: 0});
                 if (DEBUG) console.log("OpenRead %s <- %s", e.p1, e.p2);
-                console.log("is_good | votes");
             } else if (e.opcode == uint256(Opcode.OpenWrite)) {
                 // TODO: if P4 is int, ensure table has at least P4 columns
-                // TODO: impl. no op for now
                 e.cursors[e.p1] = Cursor({tbl: e.p2, ptr: 0});
                 if (DEBUG) console.log("OpenWrite %s <- %s", e.p1, e.p2);
-            } else if (e.opcode == uint256(Opcode.Close)) {
-                // TODO: cleanup cursor somehow?
-                // e.cursors[e.p1] = Cursor({tbl: 0, ptr: 0});
-                if (DEBUG) console.log("Close (ignored)");
             } else if (e.opcode == uint256(Opcode.InitCoroutine)) {
-                //*Set up register P1 so that it will Yield to the coroutine located at address P3.
                 if (DEBUG) console.log("InitCoroutine %s", e.p3);
                 mem[e.p1] = e.p3;
                 if (e.p2 != 0) {
@@ -224,7 +217,7 @@ contract Sqlite {
                 // it will auto-increment the id (starting from 1), BUT
                 // INSERT INTO tbl(id) VALUES(0)
                 // will insert a 0! however, here I'm ignoring NULLs
-                // and everything is treated as zero, hence zero id is not possible
+                // and everything is treated as zero.
                 if (DEBUG) console.log("SoftNull (translated as zero)");
                 mem[e.p1] = 0;
             }
@@ -326,7 +319,19 @@ contract Sqlite {
                     e.pc = e.p2;
                     continue;
                 }
+            } else if (e.opcode == uint256(Opcode.Found)) {
+                // TODO: Found & NotFound refer to entire row, not column
+                uint256 index = mem[e.p3];
+                if (DEBUG) console.log("Found; tbl: %s, index: %s, jump: %s", e.p1, index, e.p2);
+                if (tables[e.tbl()].exists(index)) {
+                    if (DEBUG) console.log("  \\--> key found.");
+                } else {
+                    if (DEBUG) console.log("  \\--> key NOT found.");
+                    e.pc = e.p2;
+                    continue;
+                }
             } else if (e.opcode == uint256(Opcode.NotFound)) {
+                // TODO: Found & NotFound refer to entire row, not column
                 uint256 index = mem[e.p3];
                 if (DEBUG) console.log("NotFound; tbl: %s, index: %s, jump: %s", e.p1, index, e.p2);
                 if (!tables[e.tbl()].exists(index)) {
@@ -343,7 +348,7 @@ contract Sqlite {
                 uint256 index = mem[e.p3];
                 if (DEBUG) console.log("NoConflict; tbl: %s, p3: %s, p4: %s", e.p1, e.p3, e.p4);
                 bool conflicted = false;
-                // /uint256 rsize = _rowSize(sslot);
+                // uint256 rsize = _rowSize(sslot);
                 // TODO: multiple columns conflict (count should be stored in MakeRecord -> _makeRow -> sslot MSB?)
                 for (uint256 i = 0; i < 1/*e.p2*/; i++) {
                     if (tables[e.cursors[e.p1 + i].tbl].exists(index)) {
@@ -405,9 +410,7 @@ contract Sqlite {
             else if (e.opcode == uint256(Opcode.MustBeInt)) {
                 if (DEBUG) console.log("MustBeInt (ignored)");
             }
-
             //*** RECORDS ***//
-
             else if (e.opcode == uint256(Opcode.Copy)) {
                 // TODO: use identity precompile?
                 revert("Copy unimplemented");
@@ -460,23 +463,15 @@ contract Sqlite {
 
                 if (DEBUG) console.log("IdxInsert [%s] %s -> %s", e.p1, key, sslot);
                 tables[e.tbl()].insert(key, sslot);
-
-                // console.log("IDX INSERT SLOT: %s", tables[e.tbl()].nodes[key].sslot);
             } else if (e.opcode == uint256(Opcode.Delete)) {
                 uint256 key = e.ptr();
                 uint256 sslot = tables[e.tbl()].nodes[key].sslot;
                 
                 if (DEBUG) console.log("Delete [%s] %s -> %s", e.p1, key, sslot);
                 tables[e.tbl()].remove(key);
-                // TODO: purge...
+                // TODO: should purge on Delete?
                 _deleteRow(sslot);
             } else if (e.opcode == uint256(Opcode.IdxDelete)) {
-                //* The content of P3 registers starting at register P2 form an unpacked index key. This opcode removes that entry from the index opened by cursor P1.
-
-                // console.log("IdxDelete %s, %s, %s", e.p1, e.p2, e.p3);
-                // console.log("IdxDelete mem %s, %s, %s", mem[e.p1], mem[e.p2], mem[e.p3]);
-                // revert("debug");
-
                 uint256 key = mem[e.p2];
 
                 if (DEBUG) console.log("IdxDelete [%s] %s", e.p1, key);
@@ -548,7 +543,9 @@ contract Sqlite {
             }
             //*** DATABASE **//
             else if (e.opcode == uint256(Opcode.Close)) {
-                if (DEBUG) console.log("Close unimplemented");
+                // TODO: cleanup cursor somehow?
+                // e.cursors[e.p1] = Cursor({tbl: 0, ptr: 0});
+                if (DEBUG) console.log("Close (ignored)");
             } else if (e.opcode == uint256(Opcode.SeekRowid)) {
                 uint256 seek_val = mem[e.p3];
                 if (DEBUG) console.log("SeekRowid [%s] %s", e.p1, seek_val);
@@ -576,8 +573,6 @@ contract Sqlite {
                 mem[e.p3] = _readColumn(sslot + col);
                 if (DEBUG) console.log("Column [%s] %s:%s", e.p1, ptr, col);
                 if (DEBUG) console.log("  \\--> %s (%s + %s)", mem[e.p3], sslot, col);
-            } else if (e.opcode == uint256(Opcode.Affinity)) {
-                if (DEBUG) console.log("Affinity (ignored: %s)", e.p4);
             } else if (e.opcode == uint256(Opcode.ResultRow)) {
                 if (DEBUG || true) {
                     console.log("ResultRow output: (%s columns)", e.p2);
@@ -604,14 +599,21 @@ contract Sqlite {
                 // TODO: emit row as log?
             } else if (e.opcode == uint256(Opcode.Rewind)) {
                 Tree storage tbl = tables[e.tbl()];
-                e._op_table(tbl);
+                if (tbl.size == 0) {
+                    if (DEBUG) console.log("Rewind [%s] EMPTY TABLE", e.p1);
+                    e.pc = e.p2 - 1;
+                    return;
+                }
+
+                uint256 first = tbl.first();
+                e.ptr(first);
+                if (DEBUG) console.log("Rewind [%s] %s", e.p1, first);
             } else if (e.opcode == uint256(Opcode.Last)) {
                 uint256 ptr = tables[e.tbl()].last();
                 e.ptr(ptr);
-                if (DEBUG) console.log("Last %s (partially implemented): %s", e.p1, ptr);
-            } else if (e.opcode == uint256(Opcode.Explain)) {
-                // no-op (?)
-                // if (DEBUG) console.log("Explain (ignored)");
+                if (DEBUG) console.log("Last [%s] %s", e.p1, ptr);
+            } else if (e.opcode == uint256(Opcode.Affinity)) {
+                if (DEBUG) console.log("Affinity (ignored: %s)", e.p4);
             } else if (e.opcode == uint256(Opcode.ParseSchema)) {
                 if (DEBUG) console.log("ParseSchema %s (ignored)", e.p4);
             } else if (e.opcode == uint256(Opcode.ReadCookie)) {
@@ -640,6 +642,9 @@ contract Sqlite {
                 // Init is the first opcode and is processed outside the loop.
                 // if there's an Init elsewhere, or more likely a jump to 0 then revert.
                 revert("Init unexpected! reverting.");
+            } else if (e.opcode == uint256(Opcode.Explain)) {
+                // no-op
+                // if (DEBUG) console.log("Explain (ignored)");
             } else {
                 if (DEBUG) console.log("%s: UNKNOWN OPCODE", uint256(e.opcode));
                 revert("unimplemented opcode");

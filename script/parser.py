@@ -16,14 +16,14 @@ op2code = \
   'VUpdate': (10, False), # synopsis: data=r[P3@P2]
   'Goto': (11, True), # jump
   'Gosub': (12, False), # jump
-  'InitCoroutine': (13, False), # jump
-  'Yield': (14, False), # jump
+  'InitCoroutine': (13, True), # jump
+  'Yield': (14, True), # jump
   'MustBeInt': (15, True), # jump
-  'Jump': (16, False), # jump
+  'Jump': (16, True), # jump
   'Once': (17, False), # jump
   'If': (18, True), # jump
-  'Not': (19, False), # same as TK_NOT, synopsis: r[P2]= !r[P1]
-  'IfNot': (20, False), # jump
+  'Not': (19, True), # same as TK_NOT, synopsis: r[P2]= !r[P1]
+  'IfNot': (20, True), # jump
   'IfNullRow': (21, False), # jump, synopsis: if P1.nullRow then r[P3]=NULL, goto P2,
   'SeekLT': (22, False), # jump, synopsis: key=r[P3@P4]
   'SeekLE': (23, False), # jump, synopsis: key=r[P3@P4]
@@ -31,9 +31,9 @@ op2code = \
   'SeekGT': (25, False), # jump, synopsis: key=r[P3@P4]
   'IfNotOpen': (26, False), # jump, synopsis: if( !csr[P1] ) goto P2
   'IfNoHope': (27, False), # jump, synopsis: key=r[P3@P4]
-  'NoConflict': (28, False), # jump, synopsis: key=r[P3@P4]
-  'NotFound': (29, False), # jump, synopsis: key=r[P3@P4]
-  'Found': (30, False), # jump, synopsis: key=r[P3@P4]
+  'NoConflict': (28, True), # jump, synopsis: key=r[P3@P4]
+  'NotFound': (29, True), # jump, synopsis: key=r[P3@P4]
+  'Found': (30, True), # jump, synopsis: key=r[P3@P4]
   'SeekRowid': (31, False), # jump, synopsis: intkey=r[P3]
   'NotExists': (32, True), # jump, synopsis: intkey=r[P3]
   'Last': (33, True), # jump
@@ -46,14 +46,14 @@ op2code = \
   'IdxLT': (40, False), # jump, synopsis: key=r[P3@P4]
   'IdxGE': (41, False), # jump, synopsis: key=r[P3@P4]
   'RowSetRead': (42, False), # jump, synopsis: r[P3]=rowset(P1)
-  'Or': (43, False), # same as TK_OR, synopsis: r[P3]=(r[P1] || r[P2])
-  'And': (44, False), # same as TK_AND, synopsis: r[P3]=(r[P1] && r[P2])
+  'Or': (43, True), # same as TK_OR, synopsis: r[P3]=(r[P1] || r[P2])
+  'And': (44, True), # same as TK_AND, synopsis: r[P3]=(r[P1] && r[P2])
   'RowSetTest': (45, False), # jump, synopsis: if r[P3] in rowset(P1) goto P2,
   'Program': (46, False), # jump
   'FkIfZero': (47, False), # jump, synopsis: if fkctr[P1]==0, goto P2, #
   'IfPos': (48, False), # jump, synopsis: if r[P1]>0, then r[P1]-=P3, goto P2,
-  'IfNotZero': (49, False), # jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2,
-  'IsNull': (50, False), # jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2,
+  'IfNotZero': (49, True), # jump, synopsis: if r[P1]!=0, then r[P1]--, goto P2,
+  'IsNull': (50, True), # jump, same as TK_ISNULL, synopsis: if r[P1]==NULL goto P2,
   'NotNull': (51, True), # jump, same as TK_NOTNULL, synopsis: if r[P1]!=NULL goto P2,
   'Ne': (52, True), # jump, same as TK_NE, synopsis: IF r[P3]!=r[P1]
   'Eq': (53, True), # jump, same as TK_EQ, synopsis: IF r[P3]==r[P1]
@@ -68,12 +68,12 @@ op2code = \
   'Init': (62, True), # jump, synopsis: Start at P2, #
   'PureFunc': (63, False), # synopsis: r[P3]=func(r[P2@NP])
   'Function': (64, False), # synopsis: r[P3]=func(r[P2@NP])
-  'Return': (65, False),
-  'EndCoroutine': (66, False),
-  'HaltIfNull': (67, False), # synopsis: if r[P3]=null halt
+  'Return': (65, True),
+  'EndCoroutine': (66, True),
+  'HaltIfNull': (67, True), # synopsis: if r[P3]=null halt
   'Halt': (68, True),
   'Integer': (69, True), # synopsis: r[P2]=P1, #
-  'Int64': (70, False), # synopsis: r[P2]=P4, #
+  'Int64': (70, True), # synopsis: r[P2]=P4, #
   'String': (71, False), # synopsis: r[P2]='P4' (len=P1)
   'Null': (72, True), # synopsis: r[P2..P3]=NULL
   'SoftNull': (73, True), # synopsis: r[P1]=NULL
@@ -81,11 +81,11 @@ op2code = \
   'Variable': (75, False), # synopsis: r[P2]=parameter(P1,P4)
   'Move': (76, False), # synopsis: r[P2@P3]=r[P1@P3]
   'Copy': (77, False), # synopsis: r[P2@P3+1]=r[P1@P3+1]
-  'SCopy': (78, False), # synopsis: r[P2]=r[P1]
-  'IntCopy': (79, False), # synopsis: r[P2]=r[P1]
+  'SCopy': (78, True), # synopsis: r[P2]=r[P1]
+  'IntCopy': (79, True), # synopsis: r[P2]=r[P1]
   'ResultRow': (80, True), # synopsis: output=r[P1@P2]
   'CollSeq': (81, False),
-  'AddImm': (82, False), # synopsis: r[P1]=r[P1]+P2, #
+  'AddImm': (82, True), # synopsis: r[P1]=r[P1]+P2, #
   'RealAffinity': (83, False),
   'Cast': (84, False), # synopsis: affinity(r[P1])
   'Permutation': (85, False),
@@ -104,15 +104,15 @@ op2code = \
   'OpenDup': (98, False),
   'OpenAutoindex': (99, False), # synopsis: nColumn=P2, #
   'OpenEphemeral': (100, False), # synopsis: nColumn=P2, #
-  'BitAnd': (101, False), # same as TK_BITAND, synopsis: r[P3]=r[P1]&r[P2]
-  'BitOr': (102, False), # same as TK_BITOR, synopsis: r[P3]=r[P1]|r[P2]
-  'ShiftLeft': (103, False), # same as TK_LSHIFT, synopsis: r[P3]=r[P2]<<r[P1]
-  'ShiftRight': (104, False), # same as TK_RSHIFT, synopsis: r[P3]=r[P2]>>r[P1]
-  'Add': (105, False), # same as TK_PLUS, synopsis: r[P3]=r[P1]+r[P2]
-  'Subtract': (106, False), # same as TK_MINUS, synopsis: r[P3]=r[P2]-r[P1]
-  'Multiply': (107, False), # same as TK_STAR, synopsis: r[P3]=r[P1]*r[P2]
-  'Divide': (108, False), # same as TK_SLASH, synopsis: r[P3]=r[P2]/r[P1]
-  'Remainder': (109, False), # same as TK_REM, synopsis: r[P3]=r[P2]%r[P1]
+  'BitAnd': (101, True), # same as TK_BITAND, synopsis: r[P3]=r[P1]&r[P2]
+  'BitOr': (102, True), # same as TK_BITOR, synopsis: r[P3]=r[P1]|r[P2]
+  'ShiftLeft': (103, True), # same as TK_LSHIFT, synopsis: r[P3]=r[P2]<<r[P1]
+  'ShiftRight': (104, True), # same as TK_RSHIFT, synopsis: r[P3]=r[P2]>>r[P1]
+  'Add': (105, True), # same as TK_PLUS, synopsis: r[P3]=r[P1]+r[P2]
+  'Subtract': (106, True), # same as TK_MINUS, synopsis: r[P3]=r[P2]-r[P1]
+  'Multiply': (107, True), # same as TK_STAR, synopsis: r[P3]=r[P1]*r[P2]
+  'Divide': (108, True), # same as TK_SLASH, synopsis: r[P3]=r[P2]/r[P1]
+  'Remainder': (109, True), # same as TK_REM, synopsis: r[P3]=r[P2]%r[P1]
   'Concat': (110, False), # same as TK_CONCAT, synopsis: r[P3]=r[P2]+r[P1]
   'SorterOpen': (111, False),
   'BitNot': (112, False), # same as TK_BITNOT, synopsis: r[P2]= ~r[P1]
@@ -125,7 +125,7 @@ op2code = \
   'Sequence': (119, False), # synopsis: r[P2]=cursor[P1].ctr++
   'NewRowid': (120, True), # synopsis: r[P2]=rowid
   'Insert': (121, True), # synopsis: intkey=r[P3] data=r[P2]
-  'Delete': (122, False),
+  'Delete': (122, True),
   'ResetCount': (123, False),
   'SorterCompare': (124, False), # synopsis: if key(P1)!=trim(r[P3],P4) goto P2,
   'SorterData': (125, False), # synopsis: r[P2]=data
@@ -135,7 +135,7 @@ op2code = \
   'SeekEnd': (129, False),
   'IdxInsert': (130, False), # synopsis: key=r[P2]
   'SorterInsert': (131, False), # synopsis: key=r[P2]
-  'IdxDelete': (132, False), # synopsis: key=r[P2@P3]
+  'IdxDelete': (132, True), # synopsis: key=r[P2@P3]
   'DeferredSeek': (133, False), # synopsis: Move P3, to P1.rowid if needed
   'IdxRowid': (134, False), # synopsis: r[P2]=rowid
   'FinishSeek': (135, False),
@@ -197,7 +197,8 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'delete from four where id = 111'
 #query = 'delete from four where value = 555'
 #query = 'DELETE FROM sqlidity WHERE is_good = 0'
-query = 'INSERT INTO sqlidity VALUES(true, 155),(false, 173),(false, 173)'
+#query = 'INSERT INTO sqlidity VALUES(true, 155),(false, 173),(false, 173)'
+query = input()
 
 OUTPUT_BYTECODE = True
 
