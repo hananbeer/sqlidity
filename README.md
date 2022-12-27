@@ -2,6 +2,27 @@
 
 Simplified sqlite3 implementation on-chain written in Solidity.
 
+Contract: [@high_byte](https://twitter.com/high_byte) | [Contributing](#contributing)
+
+# Usage
+
+Run tests:
+
+`forge test -vv`
+
+Generate new test queries:
+
+`python ./script/parser.py`
+
+Example:
+`echo "SELECT * FROM votes WHERE votes > 100" | python ./script/parser.py | pbcopy`
+
+(pbcopy will copy solidity code to the clipboard, paste it in [./test/Sqlite.t.sol](./test/Sqlite.t.sol))
+
+# Debugging
+
+Make sure `DEBUG = true` in [./src/Types.sol](./src/Types.sol)
+
 # Why?
 
 Sqlidity is part of an experiment to merge the world of classic databases and blockchains.
@@ -44,3 +65,11 @@ The future of on-chain SQL (and databases in general) is unknown, but I believe 
 4. Add ZK proofs to new rollup
 5. Implement on cosmos ecosystem as L0 or whatever
 
+# Contributing
+
+Feel free to experiment with this repository. Contributions of any form are welcome, including:
+- Code contributions to this repo
+- Additional research & development with (or without) relation to the roadmap
+- **Grants** to fund future research.
+
+Contract: [@high_byte](https://twitter.com/high_byte)
