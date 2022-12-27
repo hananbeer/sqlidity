@@ -137,6 +137,7 @@ contract Sqlite {
     function execute(bytes calldata bytecode) public payable {
         // _alloc();
         ExecEngine memory e;
+        uint256 yield_p2;
 
         uint256[] memory mem = new uint256[](10);
 
@@ -147,10 +148,10 @@ contract Sqlite {
         e.pc = e.p2;
         if (e.pc == 0)
             e.pc = 1;
-
+        uint256 count = 0;
         uint256 opcodes_length = bytecode.length / INS_SIZE;
         while (e.pc < opcodes_length) {
-
+            require(count++<40);
             require((e.pc + 1) <= opcodes_length, "unexpected bytecode end");
 
             // ins = abi.decode(bytecode[e.pc * INS_SIZE:(e.pc + 1) * INS_SIZE], (Instruction));
@@ -159,6 +160,7 @@ contract Sqlite {
             //     (uint256, uint256, uint256, uint256, uint256, uint256)
             // );
             e.parseNext(bytecode);
+            // console.log("pc: %s, op: %s", e.pc, e.opcode);
 
             //*** TRANSACTIONS ***//
             if (e.opcode == uint256(Opcode.Transaction)) {
@@ -180,13 +182,28 @@ contract Sqlite {
                 // e.cursors[e.p1] = Cursor({tbl: 0, ptr: 0});
                 if (DEBUG) console.log("Close (ignored)");
             } else if (e.opcode == uint256(Opcode.InitCoroutine)) {
-                if (DEBUG) console.log("InitCoroutine (ignored)");
+                //*Set up register P1 so that it will Yield to the coroutine located at address P3.
+                if (DEBUG) console.log("InitCoroutine %s", e.p3);
+                mem[e.p1] = e.p3;
+                if (e.p2 != 0) {
+                    e.pc = e.p2;
+                    continue;
+                }
             } else if (e.opcode == uint256(Opcode.EndCoroutine)) {
-                if (DEBUG) console.log("EndCoroutine (ignored)");
+                e.pc = yield_p2;
+                if (DEBUG) console.log("EndCoroutine %s", yield_p2);
+                continue;
             } else if (e.opcode == uint256(Opcode.Yield)) {
-                if (DEBUG) console.log("Yield %s <-> %s", mem[e.p1], e.pc);
-                mem[e.p1] = e.pc;
-                e.pc = mem[e.p1];
+                uint256 p1 = mem[e.p1];
+                if (DEBUG) console.log("Yield %s <-> %s", p1, e.pc + 1);
+                mem[e.p1] = e.pc + 1;
+                e.pc = p1;
+                if (e.p2 > 0)
+                    yield_p2 = e.p2;
+                continue;
+            } else if (e.opcode == uint256(Opcode.Return)) {
+                if (DEBUG) console.log("Return");
+                yield_p2 = 0;
             }
             //*** CONSTANTS ***//
             else if (e.opcode == uint256(Opcode.Integer)) {

@@ -196,7 +196,8 @@ code2op = { value: key for (key, value) in op2code.items() }
 #query = 'select * from four'
 #query = 'delete from four where id = 111'
 #query = 'delete from four where value = 555'
-query = 'DELETE FROM sqlidity WHERE is_good = 0'
+#query = 'DELETE FROM sqlidity WHERE is_good = 0'
+query = 'INSERT INTO sqlidity VALUES(true, 155),(false, 173),(false, 173)'
 
 OUTPUT_BYTECODE = True
 

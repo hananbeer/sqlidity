@@ -1406,7 +1406,7 @@ Find the next available sequence number for cursor P1. Write the sequence number
 P1 is a sorter cursor. If the sequence counter is currently zero, jump to P2. Regardless of whether or not the jump is taken, increment the the sequence value.
 ```
 
-# [ ] SetCookie
+# [x] SetCookie
 
 ```
 Write the integer value P3 into cookie number P2 of database P1. P2==1 is the schema version. P2==2 is the database format. P2==3 is the recommended pager cache size, and so forth. P1==0 is the main database file and P1==1 is the database file used to store temporary tables.
@@ -1416,19 +1416,19 @@ A transaction must be started before executing this opcode.
 If P2 is the SCHEMA_VERSION cookie (cookie number 1) then the internal schema version is set to P3-P5. The "PRAGMA schema_version=N" statement has P5 set to 1, so that the internal schema version will be different from the database schema version, resulting in a schema reset.
 ```
 
-# [ ] ShiftLeft
+# [v] ShiftLeft
 
 ```
 Shift the integer value in register P2 to the left by the number of bits specified by the integer in register P1. Store the result in register P3. If either input is NULL, the result is NULL.
 ```
 
-# [ ] ShiftRight
+# [v] ShiftRight
 
 ```
 Shift the integer value in register P2 to the right by the number of bits specified by the integer in register P1. Store the result in register P3. If either input is NULL, the result is NULL.
 ```
 
-# [ ] SoftNull
+# [v] SoftNull
 
 ```
 Set register P1 to have the value NULL as seen by the MakeRecord instruction, but do not free any string or blob memory associated with the register, so that if the value was a string or blob that was previously copied using SCopy, the copies will continue to be valid.
@@ -1488,13 +1488,13 @@ After all records have been inserted into the Sorter object identified by P1, in
 This opcode is an alias for Sort and Rewind that is used for Sorter objects.
 ```
 
-# [ ] SqlExec
+# [x] SqlExec
 
 ```
 Run the SQL statement or statements specified in the P4 string.
 ```
 
-# [ ] String
+# [5] String
 
 ```
 The string value P4 of length P1 (bytes) is stored in register P2.
@@ -1504,13 +1504,13 @@ If P3 is not zero and the content of register P3 is equal to P5, then the dataty
 if( P3!=0 and reg[P3]==P5 ) reg[P2] := CAST(reg[P2] as BLOB)
 ```
 
-# [ ] String8
+# [5] String8
 
 ```
 P4 points to a nul terminated UTF-8 string. This opcode is transformed into a String opcode before it is executed for the first time. During this transformation, the length of string P4 is computed and stored as the P1 parameter.
 ```
 
-# [ ] Subtract
+# [v] Subtract
 
 ```
 Subtract the value in register P1 from the value in register P2 and store the result in register P3. If either input is NULL, the result is NULL.
@@ -1536,7 +1536,7 @@ Write P4 on the statement trace output if statement tracing is enabled.
 Operand P1 must be 0x7fffffff and P2 must positive.
 ```
 
-# [ ] Transaction
+# [x] Transaction
 
 ```
 Begin a transaction on database P1 if a transaction is not already active. If P2 is non-zero, then a write-transaction is started, or if a read-transaction is already active, it is upgraded to a write-transaction. If P2 is zero, then a read-transaction is started. If P2 is 2 or more then an exclusive transaction is started.
@@ -1659,7 +1659,7 @@ P1 is a boolean flag. If it is set to true and the xUpdate call is successful, t
 P5 is the error actions (OE_Replace, OE_Fail, OE_Ignore, etc) to apply in the case of a constraint failure on an insert or update.
 ```
 
-# [ ] Yield
+# [5] Yield
 
 ```
 Swap the program counter with the value in register P1. This has the effect of yielding to a coroutine.

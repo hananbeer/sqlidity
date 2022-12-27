@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import "forge-std/console.sol";
 
-bool constant DEBUG = false;
+bool constant DEBUG = true;
 
 uint256 constant INS_SIZE = 32 * 6;
 
