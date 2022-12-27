@@ -356,7 +356,7 @@ contract Sqlite {
             else if (e.opcode == uint256(Opcode.And)) {
                 if (DEBUG) console.log("And %s && %s", mem[e.p2], mem[e.p1]);
                 mem[e.p3] = (mem[e.p2] > 0 && mem[e.p1] > 0 ? 1 : 0);
-            else if (e.opcode == uint256(Opcode.Or)) {
+            } else if (e.opcode == uint256(Opcode.Or)) {
                 if (DEBUG) console.log("Or %s || %s", mem[e.p2], mem[e.p1]);
                 mem[e.p3] = (mem[e.p2] > 0 || mem[e.p1] > 0 ? 1 : 0);
             } else if (e.opcode == uint256(Opcode.Add)) {
@@ -375,7 +375,7 @@ contract Sqlite {
                 if (DEBUG) console.log("Divide %s / %s", mem[e.p2], mem[e.p1]);
                 mem[e.p3] = mem[e.p2] / mem[e.p1];
             } else if (e.opcode == uint256(Opcode.Remainder)) {
-                if (DEBUG) console.log("Remainder %s % %s", mem[e.e2], mem[e.p1]);
+                if (DEBUG) console.log("Remainder %s % %s", mem[e.p2], mem[e.p1]);
                 mem[e.p3] = mem[e.p2] % mem[e.p1];
             } else if (e.opcode == uint256(Opcode.BitNot)) {
                 if (DEBUG) console.log("BitNot ~%s", mem[e.p1]);
