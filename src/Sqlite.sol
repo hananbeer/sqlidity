@@ -125,29 +125,20 @@ contract Sqlite {
         }
     }
 
-    // function _alloc() internal view {
-    //     uint256 val;
-    //     assembly {
-    //         val := mload(0x60)
-    //     }
-    //     require(val == 0x80, "_alloc expects ptr at 0x80");
-    //     console.log("_alloc val: %s", val);
-    // }
-
     function execute(bytes calldata bytecode) public payable {
-        // _alloc();
         ExecEngine memory e;
         uint256 yield_p2;
-
+        
+        // allocate dynamically for slicing
         uint256[] memory mem = new uint256[](10);
 
-        (e.opcode, e.p1, e.p2) = abi.decode(bytecode[0x00:0x60], (uint256, uint256, uint256));
-
         // always start with Init opcode
+        (e.opcode, e.p1, e.p2) = abi.decode(bytecode[0x00:0x60], (uint256, uint256, uint256));
         require(e.opcode == uint256(Opcode.Init), "must start with Init opcode");
         e.pc = e.p2;
         if (e.pc == 0)
             e.pc = 1;
+
         uint256 count = 0;
         uint256 opcodes_length = bytecode.length / INS_SIZE;
         while (e.pc < opcodes_length) {
@@ -159,6 +150,7 @@ contract Sqlite {
             //     (uint256, uint256, uint256, uint256, uint256, uint256)
             // );
             e.parseNext(bytecode);
+            // DEBUG:
             // console.log("pc: %s, op: %s", e.pc, e.opcode);
 
             //*** TRANSACTIONS ***//
@@ -631,7 +623,19 @@ contract Sqlite {
                 if (DEBUG) console.log("CreateBtree (ignored)");
             } else if (e.opcode == uint256(Opcode.Noop)) {
                 // no-op
-                if (DEBUG) console.log("No-op");
+                if (DEBUG) console.log("Noop");
+            } else if (e.opcode == uint256(Opcode.AutoCommit)) {
+                // no-op
+                if (DEBUG) console.log("AutoCommit (ignored)");
+            } else if (e.opcode == uint256(Opcode.JournalMode)) {
+                // no-op
+                if (DEBUG) console.log("JournalMode (ignored)");
+            } else if (e.opcode == uint256(Opcode.MaxPgcnt)) {
+                // no-op
+                if (DEBUG) console.log("MaxPgcnt (ignored)");
+            } else if (e.opcode == uint256(Opcode.MemMax)) {
+                // no-op
+                if (DEBUG) console.log("MemMax (ignored)");
             } else if (e.opcode == uint256(Opcode.Init)) {
                 // Init is the first opcode and is processed outside the loop.
                 // if there's an Init elsewhere, or more likely a jump to 0 then revert.

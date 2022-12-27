@@ -1,3 +1,17 @@
+# Sqlite3 Opcodes
+
+## Legend
+
+```
+[ ] - not yet implemented
+
+[1..9] - partially-implemented
+
+[x] - implemented as no-op or simplified implementation
+
+[v] - implemented (possibly deviating from sqlite3 standard)
+```
+
 # [ ] Abortable
 
 ```
@@ -78,7 +92,7 @@ Take the logical AND of the values in registers P1 and P2 and write the result i
 If either P1 or P2 is 0 (false) then the result is 0 even if the other input is NULL. A NULL and true or two NULLs give a NULL output.
 ```
 
-# [ ] AutoCommit
+# [x] AutoCommit
 
 ```
 Set the database auto-commit flag to P1 (1 or 0). If P2 is true, roll back any currently active btree transactions. If there are any active VMs (apart from this one), then a ROLLBACK fails. A COMMIT fails if there are active writing VMs or active VMs that use shared cache.
@@ -339,7 +353,7 @@ This opcode must follow an Lt or Gt comparison operator. There can be zero or mo
 If result of an Eq comparison on the same two operands as the prior Lt or Gt would have been true, then jump to P2. If the result of an Eq comparison on the two previous operands would have been false or NULL, then fall through.
 ```
 
-# [ ] EndCoroutine
+# [v] EndCoroutine
 
 ```
 The instruction at the address in register P1 is a Yield. Jump to the P2 parameter of that Yield. After the jump, register P1 becomes undefined.
@@ -629,7 +643,7 @@ Increment the value of P1 so that Once opcodes will jump the first time they are
 If P3 is not zero, then it is an address to jump to if an SQLITE_CORRUPT error is encountered.
 ```
 
-# [ ] InitCoroutine
+# [v] InitCoroutine
 
 ```
 Set up register P1 so that it will Yield to the coroutine located at address P3.
@@ -726,7 +740,7 @@ P5 is a bitmask of data types. SQLITE_INTEGER is the least significant (0x01) bi
 Take the jump to address P2 if and only if the datatype of the value determined by P1 and P3 corresponds to one of the bits in the P5 bitmask.
 ```
 
-# [ ] JournalMode
+# [x] JournalMode
 
 ```
 Change the journal mode of database P1 to P3. P3 must be one of the PAGER_JOURNALMODE_XXX values. If changing between the various rollback modes (delete, truncate, persist, off and memory), this is a simple operation. No IO is required.
@@ -796,7 +810,7 @@ The meaning of P5 depends on whether or not the SQLITE_ENABLE_NULL_TRIM compile-
 * If SQLITE_ENABLE_NULL_TRIM is omitted, then P5 has the value OPFLAG_NOCHNG_MAGIC if the MakeRecord opcode is allowed to accept no-change records with serial_type 10. This value is only used inside an assert() and does not affect the end result.
 ```
 
-# [ ] MaxPgcnt
+# [x] MaxPgcnt
 
 ```
 Try to set the maximum page count for database P1 to the value in P3. Do not let the maximum page count fall below the current page count and do not change the maximum page count value if P3==0.
@@ -804,7 +818,7 @@ Try to set the maximum page count for database P1 to the value in P3. Do not let
 Store the maximum page count after the change in register P2.
 ```
 
-# [ ] MemMax
+# [x] MemMax
 
 ```
 P1 is a register in the root frame of this VM (the root frame is different from the current frame if this instruction is being executed within a sub-program). Set the value of register P1 to the maximum of its current value and the value in register P2.
@@ -1659,7 +1673,7 @@ P1 is a boolean flag. If it is set to true and the xUpdate call is successful, t
 P5 is the error actions (OE_Replace, OE_Fail, OE_Ignore, etc) to apply in the case of a constraint failure on an insert or update.
 ```
 
-# [5] Yield
+# [v] Yield
 
 ```
 Swap the program counter with the value in register P1. This has the effect of yielding to a coroutine.
