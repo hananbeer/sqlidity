@@ -151,7 +151,6 @@ contract Sqlite {
         uint256 count = 0;
         uint256 opcodes_length = bytecode.length / INS_SIZE;
         while (e.pc < opcodes_length) {
-            require(count++<40);
             require((e.pc + 1) <= opcodes_length, "unexpected bytecode end");
 
             // ins = abi.decode(bytecode[e.pc * INS_SIZE:(e.pc + 1) * INS_SIZE], (Instruction));
