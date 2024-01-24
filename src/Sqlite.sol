@@ -54,6 +54,7 @@ contract Sqlite {
 
     function _makeTable() internal returns (Tree storage table) {
         table = tables[countTables];
+        table.insert(1, 0);
         countTables++;
     }
 
@@ -467,6 +468,11 @@ contract Sqlite {
                 uint256 key = e.ptr();
                 uint256 sslot = tables[e.tbl()].nodes[key].sslot;
                 
+                require(e.p5 & 2 == 2, "OPFLAG_SAVEPOSITION should be set");
+                uint256 ptr = tables[e.tbl()].prev(e.ptr());
+                require(ptr != 0, "Should always exits a node at head");
+                e.ptr(ptr); // move to the prev node
+
                 if (DEBUG) console.log("Delete [%s] %s -> %s", e.p1, key, sslot);
                 tables[e.tbl()].remove(key);
                 // TODO: should purge on Delete?
@@ -599,13 +605,15 @@ contract Sqlite {
                 // TODO: emit row as log?
             } else if (e.opcode == uint256(Opcode.Rewind)) {
                 Tree storage tbl = tables[e.tbl()];
-                if (tbl.size == 0) {
+                require(tbl.size > 0, "Tree size should always bigger than zero");
+                
+                if (tbl.size == 1) {
                     if (DEBUG) console.log("Rewind [%s] EMPTY TABLE", e.p1);
                     e.pc = e.p2 - 1;
                     return;
                 }
 
-                uint256 first = tbl.first();
+                uint256 first = tbl.next(tbl.first());
                 e.ptr(first);
                 if (DEBUG) console.log("Rewind [%s] %s", e.p1, first);
             } else if (e.opcode == uint256(Opcode.Last)) {
